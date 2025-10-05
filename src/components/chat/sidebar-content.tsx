@@ -34,7 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import type { Room, User } from '@/lib/types';
 import { UserAvatar } from './user-avatar';
 import { Button } from '../ui/button';
