@@ -95,27 +95,29 @@ export default function LoginForm() {
 
   return (
     <Card className="shadow-lg">
+      <CardHeader className="space-y-1 text-center">
+          <CardTitle>Sign In</CardTitle>
+      </CardHeader>
       <form onSubmit={handleLogin}>
-        <CardHeader className="space-y-1 text-center">
-            <CardTitle>Sign In</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="email" type="email" placeholder="m@example.com" required className="pl-10" value={email} onChange={e => setEmail(e.target.value)} />
+        <div className="p-6 pt-0">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="email" type="email" placeholder="m@example.com" required className="pl-10" value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="password" type="password" required placeholder="********" className="pl-10" value={password} onChange={e => setPassword(e.target.value)} />
+              </div>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="password" type="password" required placeholder="********" className="pl-10" value={password} onChange={e => setPassword(e.target.value)} />
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
+        </div>
+        <div className="flex items-center p-6 pt-0 flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading || isGithubLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In
@@ -144,7 +146,7 @@ export default function LoginForm() {
               Sign Up
             </Link>
           </p>
-        </CardFooter>
+        </div>
       </form>
     </Card>
   );
