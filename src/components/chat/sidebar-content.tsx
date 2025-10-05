@@ -70,7 +70,7 @@ export default function SidebarContentComponent() {
   }, [firestore, currentUser]);
   const { data: channels } = useCollection<Room>(channelsQuery);
 
-  // Fetch DMs
+  // Fetch DMs user is a member of
   const dmsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(
