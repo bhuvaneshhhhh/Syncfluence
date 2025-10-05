@@ -1,12 +1,11 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow users to upload their own avatars.
-    // The path should be avatars/{userId}/{fileName}
-    match /avatars/{userId}/{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null && request.auth.uid == userId;
+    match /avatars/{userId}/{fileName} {
+      // Allow a user to read and write their own avatar
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
