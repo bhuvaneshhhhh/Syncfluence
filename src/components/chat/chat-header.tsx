@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Users, ListTodo, Loader2 } from "lucide-react";
+import { Sparkles, Users, ListTodo, Loader2, UserCog } from "lucide-react";
 import type { Room, User } from "@/lib/types";
 import {
   AlertDialog,
@@ -20,17 +20,20 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { useUser } from '@/firebase';
+import ManageMembersSheet from './manage-members-sheet';
 
 type ChatHeaderProps = {
   room: Room;
   roomUsers: User[];
+  allUsers: User[];
   onShowTasks: () => void;
   taskCount: number;
 };
 
-export default function ChatHeader({ room, roomUsers, onShowTasks, taskCount }: ChatHeaderProps) {
+export default function ChatHeader({ room, roomUsers, allUsers, onShowTasks, taskCount }: ChatHeaderProps) {
   const { toast } = useToast();
   const [showSummaryDialog, setShowSummaryDialog] = useState(false);
+  const [isManageMembersOpen, setManageMembersOpen] = useState(false);
   const [summary, setSummary] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { user: currentUser } = useUser();
@@ -100,6 +103,18 @@ export default function ChatHeader({ room, roomUsers, onShowTasks, taskCount }: 
                         <p>View Tasks</p>
                     </TooltipContent>
                 </Tooltip>
+                {room.type === 'channel' && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => setManageMembersOpen(true)}>
+                                <UserCog className="h-5 w-5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Manage Members</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
             </TooltipProvider>
 
           <div className="flex -space-x-2 overflow-hidden">
@@ -138,6 +153,14 @@ export default function ChatHeader({ room, roomUsers, onShowTasks, taskCount }: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <ManageMembersSheet 
+        open={isManageMembersOpen}
+        onOpenChange={setManageMembersOpen}
+        room={room}
+        currentUsers={roomUsers}
+        allUsers={allUsers}
+       />
     </>
   );
 }

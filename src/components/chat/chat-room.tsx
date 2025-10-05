@@ -62,6 +62,13 @@ export default function ChatRoom({ roomSlug }: { roomSlug: string }) {
     return query(collection(firestore, 'users'), where('uid', 'in', room.userIds));
   }, [firestore, room]);
   const { data: roomUsers } = useCollection<User>(usersQuery);
+  
+  // Fetch all users in the system
+  const allUsersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'));
+  }, [firestore]);
+  const { data: allUsers } = useCollection<User>(allUsersQuery);
 
   const handleSendMessage = async (content: string, file?: File) => {
     if (!room || !currentUser || !firestore) return;
@@ -84,6 +91,10 @@ export default function ChatRoom({ roomSlug }: { roomSlug: string }) {
             });
             return;
         }
+    }
+
+    if (!content && !fileUrl) {
+      return;
     }
 
     const newMessageData: Omit<Message, 'id'> = {
@@ -208,7 +219,13 @@ export default function ChatRoom({ roomSlug }: { roomSlug: string }) {
   return (
     <>
       <div className="flex flex-col h-full">
-        <ChatHeader room={room} roomUsers={roomUsers || []} onShowTasks={() => setIsTaskSheetOpen(true)} taskCount={tasks.length} />
+        <ChatHeader 
+            room={room} 
+            roomUsers={roomUsers || []} 
+            allUsers={allUsers || []}
+            onShowTasks={() => setIsTaskSheetOpen(true)} 
+            taskCount={tasks.length} 
+        />
         <MessageList messages={messages || []} allUsers={roomUsers || []} />
         <MessageInput onSendMessage={handleSendMessage} />
       </div>
