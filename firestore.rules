@@ -2,78 +2,36 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Secure user profiles. Users can only read/write their own profile.
-     * @path /users/{userId}
-     * @allow (create) - User with uid "user_abc" can create their profile at /users/user_abc.
-     * @allow (get) - User with uid "user_abc" can read their profile at /users/user_abc.
-     * @allow (update) - User with uid "user_abc" can update their profile at /users/user_abc.
-     * @allow (delete) - User with uid "user_abc" can delete their profile at /users/user_abc.
-     * @deny (create) - User with uid "user_xyz" cannot create a profile at /users/user_abc.
-     * @deny (get) - User with uid "user_xyz" cannot read the profile at /users/user_abc.
-     * @principle Enforces document ownership for all operations.
-     */
+    // Allow anyone to read any document
+    match /{document=**} {
+      allow read: if true;
+    }
+
+    // Users collection:
+    // - Allow anyone to read user profiles.
+    // - Allow users to create their own profile.
+    // - Allow users to update/delete their own profile.
     match /users/{userId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow read: if true;
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    /**
-     * @description Secure chat rooms. Members can read, creator can write.
-     * @path /chatRooms/{chatRoomId}
-     * @allow (create) - User with uid "user_abc" can create a chat room if they are the owner.
-     * @allow (get) - User with uid "user_abc" can read a chat room if they are a member.
-     * @allow (update) - User with uid "user_abc" can update a chat room if they are the owner.
-     * @allow (delete) - User with uid "user_abc" can delete a chat room if they are the owner.
-     * @deny (create) - User with uid "user_xyz" cannot create a chat room as someone else.
-     * @deny (get) - User with uid "user_xyz" cannot read a chat room they are not a member of.
-     * @principle Enforces shared access based on membership list.
-     */
+    // ChatRooms collection:
+    // - Allow any authenticated user to create a chat room.
+    // - Allow users to read chat rooms.
+    // - Allow owners to update/delete chat rooms.
     match /chatRooms/{chatRoomId} {
-      allow get: if isSignedIn() && isChatRoomMember(chatRoomId);
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isSignedIn() && isChatRoomOwner(chatRoomId);
-      allow delete: if isSignedIn() && isChatRoomOwner(chatRoomId);
+      allow create: if request.auth != null;
+      allow read: if true;
+      allow update, delete: if request.auth != null && get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.ownerId == request.auth.uid;
+
+      // Subcollection: messages
+      // - Allow authenticated users to create messages in chat rooms.
+      // - Allow anyone to read messages in chat rooms.
+      match /messages/{messageId} {
+        allow create: if request.auth != null;
+        allow read: if true;
+      }
     }
-
-    /**
-     * @description Secure chat messages within a chat room. Only members can read/write.
-     * @path /chatRooms/{chatRoomId}/messages/{messageId}
-     * @allow (create) - User with uid "user_abc" can create a message if they are a member of the chat room.
-     * @allow (get) - User with uid "user_abc" can read a message if they are a member of the chat room.
-     * @allow (update) - User with uid "user_abc" can update a message if they are a member of the chat room.
-     * @allow (delete) - User with uid "user_abc" can delete a message if they are the owner of the chat room (for moderation).
-     * @deny (create) - User with uid "user_xyz" cannot create a message in a chat room they are not a member of.
-     * @deny (get) - User with uid "user_xyz" cannot read a message in a chat room they are not a member of.
-     * @principle Enforces shared access based on chat room membership.
-     */
-    match /chatRooms/{chatRoomId}/messages/{messageId} {
-      allow get: if isSignedIn() && isChatRoomMember(chatRoomId);
-      allow list: if isSignedIn() && isChatRoomMember(chatRoomId);
-      allow create: if isSignedIn() && isChatRoomMember(chatRoomId);
-      allow update: if isSignedIn() && isChatRoomMember(chatRoomId);
-      allow delete: if isSignedIn() && isChatRoomOwner(chatRoomId);
-    }
-  }
-
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  function isChatRoomMember(chatRoomId) {
-    return request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.userIds;
-  }
-
-  function isChatRoomOwner(chatRoomId) {
-    return get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.ownerId == request.auth.uid;
   }
 }
