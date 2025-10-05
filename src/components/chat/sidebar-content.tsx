@@ -39,8 +39,8 @@ import { UserAvatar } from './user-avatar';
 import { Button } from '../ui/button';
 import { signOut } from 'firebase/auth';
 import { useEffect, useState } from 'react';
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, DialogTitle, DialogDescription } from '../ui/command';
+import { Dialog, DialogContent, DialogHeader, DialogFooter } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -223,6 +223,7 @@ export default function SidebarContentComponent() {
       name: `DM with ${user.displayName}`,
       type: 'dm',
       userIds: [currentUser.uid, user.id],
+      privacy: 'private'
     };
     const docRef = await addDoc(collection(firestore, 'chatRooms'), newRoom);
     
@@ -316,6 +317,8 @@ export default function SidebarContentComponent() {
       </SidebarContent>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
+        <DialogTitle className="sr-only">Search Users</DialogTitle>
+        <DialogDescription className="sr-only">Search for users to start a new direct message.</DialogDescription>
          <CommandInput placeholder="Search for users by name..." value={search} onValueChange={setSearch} />
         <CommandList>
           <CommandEmpty>{search.length > 1 ? 'No users found.' : 'Type to search for users.'}</CommandEmpty>
