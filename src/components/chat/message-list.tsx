@@ -21,17 +21,17 @@ const formatDate = (timestamp: string) => {
 }
 
 export default function MessageList({ messages }: MessageListProps) {
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const currentUser = getCurrentUser();
 
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    if (viewportRef.current) {
+      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
     }
   }, [messages]);
 
   return (
-    <ScrollArea className="flex-1" viewportRef={scrollAreaRef}>
+    <ScrollArea className="flex-1" viewportRef={viewportRef}>
       <div className="p-4 space-y-4">
         {messages.map((message, index) => {
           const user = getUserById(message.userId);
