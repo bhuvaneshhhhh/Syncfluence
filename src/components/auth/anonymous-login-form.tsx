@@ -7,7 +7,7 @@ import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firesto
 import { Loader2, User } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -53,10 +53,8 @@ export default function AnonymousLoginForm() {
       const userCredential = await signInAnonymously(auth);
       const user = userCredential.user;
       
-      // Update Firebase Auth profile
       await updateProfile(user, { displayName });
 
-      // Create user profile in Firestore
       await setDoc(doc(firestore, 'users', user.uid), {
         uid: user.uid,
         displayName: displayName,
@@ -68,7 +66,7 @@ export default function AnonymousLoginForm() {
 
       toast({
         title: 'Welcome!',
-        description: 'You have joined the chat.',
+        description: 'You have joined the chat anonymously.',
       });
       router.push('/chat');
     } catch (error: any) {
@@ -87,7 +85,10 @@ export default function AnonymousLoginForm() {
     <Card className="shadow-lg">
       <form onSubmit={handleLogin}>
         <CardHeader className="space-y-1 text-center">
-            <CardTitle>Choose a Display Name</CardTitle>
+            <CardTitle>Join as a Guest</CardTitle>
+            <CardDescription>
+                Choose a temporary display name to start chatting.
+            </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
