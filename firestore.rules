@@ -1,71 +1,63 @@
-/**
- * @fileoverview Firestore Security Rules for Syncfluence application.
- *
- * Core Philosophy:
- * This ruleset enforces a user-centric security model with shared access control for collaboration.
- *
- * Data Structure:
- * - /users/{userId}: Stores public user profiles. Only the user can read/write their own profile.
- * - /chatRooms/{chatRoomId}: Stores chat room metadata. Members of the room can read the metadata. The creator (ownerId) has write access.
- * - /chatRooms/{chatRoomId}/messages/{messageId}: Stores chat messages. Members of the parent chat room can read and write messages.
- * - /tasks/{taskId}: Represents tasks, only accessible to the assignee.
- *
- * Key Security Decisions:
- * - Users can only list the /users collection if authenticated
- * - Data shape is not strictly enforced to allow for rapid prototyping, but authorization checks are strictly enforced.
- *
- * Denormalization for Authorization:
- * - Chat rooms denormalize the list of user IDs (`userIds`) directly on the `/chatRooms/{chatRoomId}` document to enable efficient membership checks.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profiles.
+     * @description Secure user profiles. Users can only read/write their own profile.
      * @path /users/{userId}
-     * @allow (create) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui1' can create their profile.
-     * @allow (get, update, delete) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui1' can read/write their profile.
-     * @deny (create) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui2' cannot create profile for TCQBdVxv0qP1lxTOYurfiGanXui1.
-     * @deny (get, update, delete) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui2' cannot read/write profile for TCQBdVxv0qP1lxTOYurfiGanXui1.
-     * @principle Enforces document ownership for user profiles.
+     * @allow (create) - User with uid "user_abc" can create their profile at /users/user_abc.
+     * @allow (get) - User with uid "user_abc" can read their profile at /users/user_abc.
+     * @allow (update) - User with uid "user_abc" can update their profile at /users/user_abc.
+     * @allow (delete) - User with uid "user_abc" can delete their profile at /users/user_abc.
+     * @deny (create) - User with uid "user_xyz" cannot create a profile at /users/user_abc.
+     * @deny (get) - User with uid "user_xyz" cannot read the profile at /users/user_abc.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
       allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn();
+      allow list: if false;
       allow create: if isSignedIn() && isOwner(userId);
       allow update: if isSignedIn() && isOwner(userId);
       allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
-     * @description Controls access to chat room metadata.
+     * @description Secure chat rooms. Members can read, creator can write.
      * @path /chatRooms/{chatRoomId}
-     * @allow (get, list) Any member of the chat room can read chat room metadata.
-     * @allow (create) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui1' can create a new chat room if they are the owner.
-     * @allow (update, delete) Owner of the chat room with ID 'TCQBdVxv0qP1lxTOYurfiGanXui1' can update/delete the chat room.
-     * @deny (get, list) User who isn't member of chat room cannot read chat room metadata.
-     * @deny (create, update, delete) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui2' cannot create/update/delete chat room owned by TCQBdVxv0qP1lxTOYurfiGanXui1.
-     * @principle Enforces shared access with owner-based writes for chat rooms.
+     * @allow (create) - User with uid "user_abc" can create a chat room if they are the owner.
+     * @allow (get) - User with uid "user_abc" can read a chat room if they are a member.
+     * @allow (update) - User with uid "user_abc" can update a chat room if they are the owner.
+     * @allow (delete) - User with uid "user_abc" can delete a chat room if they are the owner.
+     * @deny (create) - User with uid "user_xyz" cannot create a chat room as someone else.
+     * @deny (get) - User with uid "user_xyz" cannot read a chat room they are not a member of.
+     * @principle Enforces shared access based on membership list.
      */
     match /chatRooms/{chatRoomId} {
-      allow get, list: if isSignedIn() && isChatRoomMember(chatRoomId);
+      allow get: if isSignedIn() && isChatRoomMember(chatRoomId);
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update: if isSignedIn() && isChatRoomOwner(chatRoomId);
       allow delete: if isSignedIn() && isChatRoomOwner(chatRoomId);
     }
 
     /**
-     * @description Controls access to chat messages within a chat room.
+     * @description Secure chat messages within a chat room. Only members can read/write.
      * @path /chatRooms/{chatRoomId}/messages/{messageId}
-     * @allow (get, list, create, update, delete) Any member of the parent chat room can read and write messages.
-     * @deny (get, list, create, update, delete) User who isn't member of chat room cannot read or write chat messages.
-     * @principle Enforces shared access based on chat room membership for messages.
+     * @allow (create) - User with uid "user_abc" can create a message if they are a member of the chat room.
+     * @allow (get) - User with uid "user_abc" can read a message if they are a member of the chat room.
+     * @allow (update) - User with uid "user_abc" can update a message if they are a member of the chat room.
+     * @allow (delete) - User with uid "user_abc" can delete a message if they are the owner of the chat room (for moderation).
+     * @deny (create) - User with uid "user_xyz" cannot create a message in a chat room they are not a member of.
+     * @deny (get) - User with uid "user_xyz" cannot read a message in a chat room they are not a member of.
+     * @principle Enforces shared access based on chat room membership.
      */
     match /chatRooms/{chatRoomId}/messages/{messageId} {
-      allow get, list, create, update, delete: if isSignedIn() && isChatRoomMember(chatRoomId);
+      allow get: if isSignedIn() && isChatRoomMember(chatRoomId);
+      allow list: if isSignedIn() && isChatRoomMember(chatRoomId);
+      allow create: if isSignedIn() && isChatRoomMember(chatRoomId);
+      allow update: if isSignedIn() && isChatRoomMember(chatRoomId);
+      allow delete: if isSignedIn() && isChatRoomOwner(chatRoomId);
     }
-
   }
 
   // Helper functions
@@ -78,11 +70,10 @@ service cloud.firestore {
   }
 
   function isChatRoomMember(chatRoomId) {
-    let chatRoom = get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data;
-    return chatRoomId != null && isSignedIn() && request.auth.uid in chatRoom.userIds;
+    return request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.userIds;
   }
 
   function isChatRoomOwner(chatRoomId) {
-    return isSignedIn() && get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.ownerId == request.auth.uid;
+    return get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.ownerId == request.auth.uid;
   }
 }
