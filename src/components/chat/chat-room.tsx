@@ -29,8 +29,11 @@ export default function ChatRoom({ roomSlug }: { roomSlug: string }) {
     }
   }, [currentUser, isUserLoading, router]);
 
-  // Fetch current room
-  const roomRef = useMemoFirebase(() => firestore ? doc(firestore, 'chatRooms', roomSlug) : null, [firestore, roomSlug]);
+  // Fetch current room only when user is logged in
+  const roomRef = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    return doc(firestore, 'chatRooms', roomSlug);
+  }, [firestore, roomSlug, currentUser]);
   const { data: room, isLoading: isRoomLoading } = useDoc<Room>(roomRef);
 
   // Fetch messages for the current room
@@ -79,9 +82,18 @@ export default function ChatRoom({ roomSlug }: { roomSlug: string }) {
   }
 
   if (!room) {
-    return (
+    // If the user is loaded and there's still no room, then it's not found.
+    if(!isUserLoading && currentUser) {
+        return (
+          <div className="flex h-full flex-1 items-center justify-center">
+            <p>Room not found or you don't have access.</p>
+          </div>
+        );
+    }
+    // Still loading user, show spinner
+     return (
       <div className="flex h-full flex-1 items-center justify-center">
-        <p>Room not found or you don't have access.</p>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
