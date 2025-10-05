@@ -154,4 +154,6 @@ export {
   CommandItem,
   CommandShortcut,
   CommandSeparator,
+  DialogTitle,
+  DialogDescription
 }

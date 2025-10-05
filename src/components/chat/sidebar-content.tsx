@@ -37,30 +37,30 @@ import { UserAvatar } from './user-avatar';
 import { Button } from '../ui/button';
 import { signOut } from 'firebase/auth';
 import { useEffect, useState } from 'react';
-import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandInput } from '../ui/command';
+import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandInput, DialogTitle, DialogDescription } from '../ui/command';
 
 function DirectMessageItem({ room }: { room: Room }) {
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
   const [otherUser, setOtherUser] = useState<User | null>(null);
 
+  const otherUserId = useMemoFirebase(() => {
+    if (!currentUser || !room || room.type !== 'dm') return null;
+    return room.userIds?.find(id => id !== currentUser.uid);
+  }, [currentUser, room]);
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !otherUserId) return null;
+    return doc(firestore, 'users', otherUserId);
+  }, [firestore, otherUserId]);
+
+  const { data: userData } = useDoc<User>(userDocRef);
+
   useEffect(() => {
-    if (!firestore || !currentUser || !room || room.type !== 'dm') return;
-
-    const otherUserId = room.userIds?.find(id => id !== currentUser.uid);
-    if (!otherUserId) return;
-
-    const userDocRef = doc(firestore, 'users', otherUserId);
-    const unsub = useDoc<User>(useMemoFirebase(() => userDocRef, [userDocRef]));
-    
-    if (unsub.data) {
-        setOtherUser(unsub.data);
+    if (userData) {
+      setOtherUser(userData);
     }
-    // The useDoc hook will handle snapshot listening, but we don't have its unsubscribe function here.
-    // For this pattern, a one-time fetch or a more integrated hook might be better, but this will work for display.
-    // To prevent memory leaks in a larger app, you'd want to manage subscriptions more carefully.
-    
-  }, [firestore, currentUser, room]);
+  }, [userData]);
   
   const params = useParams();
   const slug = params.slug?.join('/') || 'general';
@@ -101,10 +101,15 @@ export default function SidebarContentComponent() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
-  // Fetch all users for search - THIS IS THE PROBLEMATIC QUERY
-  const { data: allUsers } = useCollection<User>(useMemoFirebase(() => 
-    firestore ? query(collection(firestore, 'users')) : null, 
-  [firestore]));
+  // Fetch all users for search
+   const allUsersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    // This query might need to be secured depending on your rules.
+    // For now, it fetches all users to enable searching.
+    // If your rules are strict, you might need a different approach (e.g., a search endpoint).
+    return query(collection(firestore, 'users'));
+  }, [firestore]);
+  const { data: allUsers } = useCollection<User>(allUsersQuery);
 
 
   // Fetch channels user is a member of
@@ -248,6 +253,8 @@ export default function SidebarContentComponent() {
       </SidebarContent>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
+        <DialogTitle className="sr-only">Search Users</DialogTitle>
+        <DialogDescription className="sr-only">Search for users to start a new direct message.</DialogDescription>
         <CommandInput placeholder="Search for users by name..." value={search} onValueChange={setSearch} />
         <CommandList>
           <CommandEmpty>{search.length > 1 ? 'No users found.' : 'Type to search for users.'}</CommandEmpty>
