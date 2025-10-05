@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Github, Loader2, Mail, Lock } from 'lucide-react';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, GithubAuthProvider } from 'firebase/auth';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,7 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setGoogleIsLoading] = useState(false);
+  const [isGithubLoading, setGithubIsLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +70,28 @@ export default function LoginForm() {
     }
   };
 
+  const handleGithubSignIn = async () => {
+    setGithubIsLoading(true);
+    try {
+      const provider = new GithubAuthProvider();
+      await signInWithPopup(auth, provider);
+      toast({
+        title: 'Login Successful',
+        description: 'Welcome back!',
+      });
+      router.push('/chat');
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'GitHub Sign-In Failed',
+        description: error.message || 'Could not sign in with GitHub.',
+      });
+    } finally {
+      setGithubIsLoading(false);
+    }
+  };
+
 
   return (
     <Card className="shadow-lg">
@@ -93,7 +116,7 @@ export default function LoginForm() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
+          <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading || isGithubLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In
           </Button>
@@ -105,10 +128,14 @@ export default function LoginForm() {
             </span>
           </div>
 
-          <div className="w-full grid grid-cols-1 gap-4">
-            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading} onClick={handleGoogleSignIn}>
+          <div className="w-full grid grid-cols-2 gap-4">
+            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading || isGithubLoading} onClick={handleGoogleSignIn}>
               {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
-              Continue with Google
+              Google
+            </Button>
+            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading || isGithubLoading} onClick={handleGithubSignIn}>
+              {isGithubLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Github className="mr-2 h-4 w-4" />}
+              GitHub
             </Button>
           </div>
           <p className="text-center text-sm text-muted-foreground">

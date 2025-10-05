@@ -59,8 +59,15 @@ export default function SidebarContentComponent() {
   const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "users")) : null, [firestore]);
   const { data: allUsers } = useCollection<User>(usersQuery);
 
-  // Fetch channels (public rooms)
-  const channelsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "chatRooms"), where("type", "==", "channel")) : null, [firestore]);
+  // Fetch channels (public rooms) user is a member of
+  const channelsQuery = useMemoFirebase(() => {
+    if (!firestore || !currentUser) return null;
+    return query(
+        collection(firestore, "chatRooms"), 
+        where("type", "==", "channel"),
+        where('userIds', 'array-contains', currentUser.uid)
+    );
+  }, [firestore, currentUser]);
   const { data: channels } = useCollection<Room>(channelsQuery);
 
   // Fetch DMs

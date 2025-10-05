@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, GithubAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { Loader2, Mail, Lock, User, Github } from 'lucide-react';
 
@@ -27,6 +27,7 @@ export default function SignupForm() {
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setGoogleIsLoading] = useState(false);
+  const [isGithubLoading, setGithubIsLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,10 +73,14 @@ export default function SignupForm() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setGoogleIsLoading(true);
+  const handleProviderSignIn = async (provider: GoogleAuthProvider | GithubAuthProvider) => {
+    if (provider.providerId === 'google.com') {
+      setGoogleIsLoading(true);
+    } else {
+      setGithubIsLoading(true);
+    }
+    
     try {
-      const provider = new GoogleAuthProvider();
       const userCredential = await signInWithPopup(auth, provider);
       const user = userCredential.user;
 
@@ -97,11 +102,15 @@ export default function SignupForm() {
       console.error(error);
       toast({
         variant: 'destructive',
-        title: 'Google Sign-In Failed',
-        description: error.message || 'Could not sign in with Google.',
+        title: `${provider.providerId === 'google.com' ? 'Google' : 'GitHub'} Sign-In Failed`,
+        description: error.message || 'Could not sign in.',
       });
     } finally {
-      setGoogleIsLoading(false);
+      if (provider.providerId === 'google.com') {
+        setGoogleIsLoading(false);
+      } else {
+        setGithubIsLoading(false);
+      }
     }
   };
 
@@ -136,7 +145,7 @@ export default function SignupForm() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
+          <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading || isGithubLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign Up
           </Button>
@@ -148,10 +157,14 @@ export default function SignupForm() {
             </span>
           </div>
 
-          <div className="w-full grid grid-cols-1 gap-4">
-            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading} onClick={handleGoogleSignIn}>
+          <div className="w-full grid grid-cols-2 gap-4">
+            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading || isGithubLoading} onClick={() => handleProviderSignIn(new GoogleAuthProvider())}>
               {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
-              Continue with Google
+              Google
+            </Button>
+            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading || isGithubLoading} onClick={() => handleProviderSignIn(new GithubAuthProvider())}>
+              {isGithubLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Github className="mr-2 h-4 w-4" />}
+              GitHub
             </Button>
           </div>
            <p className="text-center text-sm text-muted-foreground">
