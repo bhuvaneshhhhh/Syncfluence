@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,7 +14,8 @@ import {
 } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, User, Mail, Lock, Image as ImageIcon, ArrowLeft } from 'lucide-react';
+import { getStorage } from 'firebase/storage';
+import { Loader2, User, Mail, Lock, Image as ImageIcon, ArrowLeft, ChevronDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -37,16 +38,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore, useUser, useFirebaseApp } from '@/firebase';
 import { UserAvatar } from '@/components/chat/user-avatar';
-import { getStorage } from 'firebase/storage';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown } from 'lucide-react';
 
-const formSchema = z.object({
+const profileFormSchema = z.object({
   displayName: z.string().min(3, 'Too short').max(50, 'Too long'),
   bio: z.string().max(160, 'Too long').optional(),
+});
+
+const accountFormSchema = z.object({
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   password: z.string().min(6, 'Must be 6+ characters').optional().or(z.literal('')),
-  currentPassword: z.string().optional(),
+});
+
+const passwordChangeSchema = z.object({
+    currentPassword: z.string().min(1, 'Current password is required.'),
+    newPassword: z.string().min(6, 'New password must be at least 6 characters.'),
 });
 
 export default function SettingsPage() {
@@ -58,38 +64,52 @@ export default function SettingsPage() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [isAccountLoading, setIsAccountLoading] = useState(false);
+  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const profileForm = useForm<z.infer<typeof profileFormSchema>>({
+    resolver: zodResolver(profileFormSchema),
     defaultValues: {
       displayName: '',
       bio: '',
+    },
+  });
+
+  const accountForm = useForm<z.infer<typeof accountFormSchema>>({
+    resolver: zodResolver(accountFormSchema),
+    defaultValues: {
       email: '',
       password: '',
-      currentPassword: '',
     },
   });
   
-  // Set form values once user data is loaded
+  const passwordChangeForm = useForm<z.infer<typeof passwordChangeSchema>>({
+    resolver: zodResolver(passwordChangeSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+    },
+  });
+
   useEffect(() => {
     if (user && firestore) {
-      form.setValue('displayName', user.displayName || '');
-      form.setValue('email', user.email || '');
+      profileForm.setValue('displayName', user.displayName || '');
+      accountForm.setValue('email', user.email || '');
 
       const userDocRef = doc(firestore, 'users', user.uid);
       import('firebase/firestore').then(({ getDoc }) => {
         getDoc(userDocRef).then((docSnap) => {
           if (docSnap.exists()) {
-            form.setValue('bio', docSnap.data()?.bio || '');
+            profileForm.setValue('bio', docSnap.data()?.bio || '');
           }
         });
       });
     }
-  }, [user, firestore, form]);
-
+  }, [user, firestore, profileForm, accountForm]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -99,53 +119,29 @@ export default function SettingsPage() {
     }
   };
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onProfileSubmit = async (values: z.infer<typeof profileFormSchema>) => {
     if (!user || !firestore) return;
-    setIsLoading(true);
+    setIsProfileLoading(true);
 
     try {
       const userDocRef = doc(firestore, 'users', user.uid);
       let newAvatarUrl = user.photoURL;
 
-      // 1. Upload new avatar if selected
       if (avatarFile) {
         const storageRef = ref(storage, `avatars/${user.uid}/${avatarFile.name}`);
         await uploadBytes(storageRef, avatarFile);
         newAvatarUrl = await getDownloadURL(storageRef);
       }
 
-      // 2. Reauthenticate if password is being changed
-      if (values.password && user.email) {
-        if (!values.currentPassword) {
-          form.setError('currentPassword', { message: 'Current password is required to change it.' });
-          setIsLoading(false);
-          return;
-        }
-        const credential = EmailAuthProvider.credential(user.email, values.currentPassword);
-        await reauthenticateWithCredential(user, credential);
-        await updatePassword(user, values.password);
-      }
-
-      // 3. Link email/password if user is anonymous
-      if (user.isAnonymous && values.email && values.password) {
-        const credential = EmailAuthProvider.credential(values.email, values.password);
-        await linkWithCredential(user, credential);
-        // User is no longer anonymous, their data is preserved
-      }
-
-      // 4. Update Firebase Auth profile
       await updateProfile(user, {
         displayName: values.displayName,
         photoURL: newAvatarUrl,
       });
 
-      // 5. Update Firestore user document
       await updateDoc(userDocRef, {
         displayName: values.displayName,
         bio: values.bio,
         avatarUrl: newAvatarUrl,
-        isAnonymous: user.isAnonymous && !(values.email && values.password), // Becomes non-anon if email/pass linked
-        ...(user.isAnonymous && values.email && { email: values.email }), // only update email if it was just linked
       });
 
       toast({
@@ -161,9 +157,66 @@ export default function SettingsPage() {
         description: error.message || 'An unexpected error occurred.',
       });
     } finally {
-      setIsLoading(false);
+      setIsProfileLoading(false);
     }
   };
+  
+  const onAccountSubmit = async (values: z.infer<typeof accountFormSchema>) => {
+    if (!user || !firestore || !user.isAnonymous) return;
+    setIsAccountLoading(true);
+
+    try {
+       if (user.isAnonymous && values.email && values.password) {
+        const credential = EmailAuthProvider.credential(values.email, values.password);
+        await linkWithCredential(user, credential);
+
+        const userDocRef = doc(firestore, 'users', user.uid);
+        await updateDoc(userDocRef, {
+            isAnonymous: false,
+            email: values.email
+        });
+
+        toast({
+            title: 'Account Secured',
+            description: 'Your account is now permanent.',
+        });
+       }
+    } catch (error: any) {
+         console.error('Error securing account:', error);
+        toast({
+            variant: 'destructive',
+            title: 'Update Failed',
+            description: error.message || 'An unexpected error occurred.',
+        });
+    } finally {
+        setIsAccountLoading(false);
+    }
+  };
+  
+    const onPasswordChangeSubmit = async (values: z.infer<typeof passwordChangeSchema>) => {
+        if (!user || !user.email) return;
+        setIsPasswordLoading(true);
+        try {
+            const credential = EmailAuthProvider.credential(user.email, values.currentPassword);
+            await reauthenticateWithCredential(user, credential);
+            await updatePassword(user, values.newPassword);
+            toast({
+                title: 'Password Updated',
+                description: 'Your password has been changed successfully.',
+            });
+            passwordChangeForm.reset();
+        } catch (error: any) {
+            console.error('Error changing password:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Password Change Failed',
+                description: error.code === 'auth/wrong-password' ? 'Incorrect current password.' : 'An error occurred.',
+            });
+        } finally {
+            setIsPasswordLoading(false);
+        }
+    };
+
 
   if (isUserLoading) {
     return (
@@ -180,7 +233,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl space-y-8">
          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Chat
@@ -189,12 +242,12 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle>Profile Settings</CardTitle>
             <CardDescription>
-              Manage your account details.
+              Manage your display name, bio, and avatar.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <Form {...profileForm}>
+              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <UserAvatar
@@ -208,7 +261,7 @@ export default function SettingsPage() {
                     <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                   </div>
                    <FormField
-                    control={form.control}
+                    control={profileForm.control}
                     name="displayName"
                     render={({ field }) => (
                         <FormItem className='flex-1'>
@@ -223,7 +276,7 @@ export default function SettingsPage() {
                 </div>
 
                 <FormField
-                  control={form.control}
+                  control={profileForm.control}
                   name="bio"
                   render={({ field }) => (
                     <FormItem>
@@ -240,15 +293,26 @@ export default function SettingsPage() {
                   )}
                 />
                 
-                {user.isAnonymous ? (
-                    <Card className="bg-secondary/50">
+                <Button type="submit" className="w-full" disabled={isProfileLoading}>
+                  {isProfileLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Profile Changes
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
+        {user.isAnonymous ? (
+            <Card className="bg-card">
+                 <Form {...accountForm}>
+                    <form onSubmit={accountForm.handleSubmit(onAccountSubmit)}>
                         <CardHeader>
                             <CardTitle className='text-lg'>Make Account Permanent</CardTitle>
                             <CardDescription>Add an email and password to save your profile and log in on other devices.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                              <FormField
-                                control={form.control}
+                                control={accountForm.control}
                                 name="email"
                                 render={({ field }) => (
                                     <FormItem>
@@ -261,7 +325,7 @@ export default function SettingsPage() {
                                 )}
                                 />
                                 <FormField
-                                control={form.control}
+                                control={accountForm.control}
                                 name="password"
                                 render={({ field }) => (
                                     <FormItem>
@@ -274,26 +338,44 @@ export default function SettingsPage() {
                                 )}
                                 />
                         </CardContent>
-                    </Card>
-                ) : (
-                    <Card className="bg-secondary/50">
-                        <CardHeader>
-                            <CardTitle className='text-lg'>Account Credentials</CardTitle>
+                         <CardContent>
+                             <Button type="submit" className="w-full" disabled={isAccountLoading}>
+                                {isAccountLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save Account
+                            </Button>
+                        </CardContent>
+                    </form>
+                 </Form>
+            </Card>
+        ) : (
+             <Card>
+                <Collapsible>
+                     <div className='flex items-center justify-between p-6'>
+                        <div>
+                             <CardTitle className='text-lg'>Account Credentials</CardTitle>
                              <CardDescription>Your email is your permanent login ID. You can change your password below.</CardDescription>
-                        </CardHeader>
-                        <Collapsible>
-                            <CollapsibleContent asChild>
-                                <CardContent className="space-y-4 pt-4">
-                                    <FormItem>
+                        </div>
+                        <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="w-9 p-0">
+                                <ChevronDown className="h-4 w-4" />
+                                <span className="sr-only">Toggle</span>
+                            </Button>
+                        </CollapsibleTrigger>
+                     </div>
+                    <CollapsibleContent asChild>
+                        <CardContent className="space-y-4 pt-4 border-t">
+                             <Form {...passwordChangeForm}>
+                                <form onSubmit={passwordChangeForm.handleSubmit(onPasswordChangeSubmit)} className="space-y-4">
+                                     <FormItem>
                                         <FormLabel>Email</FormLabel>
                                         <Input value={user.email || ''} disabled />
                                     </FormItem>
                                     <FormField
-                                        control={form.control}
+                                        control={passwordChangeForm.control}
                                         name="currentPassword"
                                         render={({ field }) => (
                                             <FormItem>
-                                            <FormLabel>Current Password (required to change)</FormLabel>
+                                            <FormLabel>Current Password</FormLabel>
                                             <FormControl>
                                                 <Input type="password" placeholder="Enter current password" {...field} />
                                             </FormControl>
@@ -302,8 +384,8 @@ export default function SettingsPage() {
                                         )}
                                         />
                                     <FormField
-                                        control={form.control}
-                                        name="password"
+                                        control={passwordChangeForm.control}
+                                        name="newPassword"
                                         render={({ field }) => (
                                             <FormItem>
                                             <FormLabel>New Password</FormLabel>
@@ -314,33 +396,18 @@ export default function SettingsPage() {
                                             </FormItem>
                                         )}
                                         />
-                                </CardContent>
-                            </CollapsibleContent>
-                             <div className='flex items-center justify-between p-6 pt-2'>
-                                <span>Change Password</span>
-                                <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="w-9 p-0">
-                                        <ChevronDown className="h-4 w-4" />
-                                        <span className="sr-only">Toggle</span>
+                                    <Button type="submit" className="w-full" disabled={isPasswordLoading}>
+                                        {isPasswordLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Change Password
                                     </Button>
-                                </CollapsibleTrigger>
-                             </div>
-                        </Collapsible>
-                    </Card>
-                )}
-
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Changes
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                                </form>
+                             </Form>
+                        </CardContent>
+                    </CollapsibleContent>
+                </Collapsible>
+            </Card>
+        )}
       </div>
     </div>
   );
 }
-
-    
