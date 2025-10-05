@@ -176,9 +176,9 @@ export default function SidebarContentComponent() {
   const channelsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser?.uid) return null;
     return query(
-        collection(firestore, "chatRooms"), 
-        where("type", "==", "channel"),
-        where("userIds", "array-contains", currentUser.uid)
+      collection(firestore, 'chatRooms'),
+      where('type', '==', 'channel'),
+      where('userIds', 'array-contains', currentUser.uid)
     );
   }, [firestore, currentUser?.uid]);
   const { data: channels } = useCollection<Room>(channelsQuery);
@@ -187,9 +187,9 @@ export default function SidebarContentComponent() {
   const dmsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser?.uid) return null;
     return query(
-      collection(firestore, "chatRooms"), 
-      where("type", "==", "dm"), 
-      where("userIds", "array-contains", currentUser.uid)
+      collection(firestore, 'chatRooms'),
+      where('type', '==', 'dm'),
+      where('userIds', 'array-contains', currentUser.uid)
     );
   }, [firestore, currentUser?.uid]);
   const { data: dms } = useCollection<Room>(dmsQuery);
