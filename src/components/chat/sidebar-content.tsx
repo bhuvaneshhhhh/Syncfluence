@@ -32,8 +32,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth, useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, addDoc, getDocs, doc, serverTimestamp } from 'firebase/firestore';
+import { useAuth, useCollection, useDoc, useFirestore, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { collection, query, where, addDoc, getDocs, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import type { Room, User } from '@/lib/types';
 import { UserAvatar } from './user-avatar';
 import { Button } from '../ui/button';
@@ -116,9 +116,18 @@ function CreateChannelDialog({ open, onOpenChange }: { open: boolean, onOpenChan
             onOpenChange(false);
             setChannelName('');
             router.push(`/chat/${docRef.id}`);
-        } catch (error) {
-            console.error('Error creating channel:', error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not create channel.' });
+        } catch (error: any) {
+            if (error.code === 'permission-denied') {
+                 const contextualError = new FirestorePermissionError({
+                    operation: 'create',
+                    path: `chatRooms`,
+                    requestResourceData: { name: channelName }
+                });
+                errorEmitter.emit('permission-error', contextualError);
+            } else {
+                console.error('Error creating channel:', error);
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not create channel.' });
+            }
         }
     };
 
@@ -201,34 +210,52 @@ export default function SidebarContentComponent() {
   
   const handleSelectUser = async (user: User) => {
     if (!currentUser || !firestore) return;
-    
-    // Check if a DM room already exists with this user
-    const existingDmQuery = query(
-      collection(firestore, 'chatRooms'),
-      where('type', '==', 'dm'),
-      where('userIds', 'array-contains', currentUser.uid)
-    );
-
-    const querySnapshot = await getDocs(existingDmQuery);
-    const existingDm = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Room).find(dm => dm.userIds.includes(user.id));
-
-    if (existingDm) {
-      router.push(`/chat/${existingDm.id}`);
-      setOpen(false);
-      return;
-    }
-
-    // Create a new DM room
-    const newRoom: Omit<Room, 'id'> = {
-      name: `DM with ${user.displayName}`,
-      type: 'dm',
-      userIds: [currentUser.uid, user.id],
-      privacy: 'private'
-    };
-    const docRef = await addDoc(collection(firestore, 'chatRooms'), newRoom);
-    
-    router.push(`/chat/${docRef.id}`);
     setOpen(false);
+
+    try {
+        // Check if a DM room already exists with this user
+        const existingDmQuery = query(
+          collection(firestore, 'chatRooms'),
+          where('type', '==', 'dm'),
+          where('userIds', 'array-contains', currentUser.uid)
+        );
+
+        const querySnapshot = await getDocs(existingDmQuery);
+        const existingDm = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Room).find(dm => dm.userIds.includes(user.id));
+
+        if (existingDm) {
+          router.push(`/chat/${existingDm.id}`);
+          return;
+        }
+
+        // Create a new DM room
+        const newRoomData: Omit<Room, 'id'> = {
+          name: `DM with ${user.displayName}`,
+          type: 'dm',
+          userIds: [currentUser.uid, user.id],
+          privacy: 'private'
+        };
+        const docRef = await addDoc(collection(firestore, 'chatRooms'), newRoomData);
+        
+        router.push(`/chat/${docRef.id}`);
+
+    } catch (error: any) {
+         if (error.code === 'permission-denied') {
+            const contextualError = new FirestorePermissionError({
+                operation: 'create',
+                path: `chatRooms`,
+                requestResourceData: { userIds: [currentUser.uid, user.id], type: 'dm' }
+            });
+            errorEmitter.emit('permission-error', contextualError);
+        } else {
+            console.error("Error creating DM:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Could not start a new conversation.'
+            });
+        }
+    }
   }
 
   const filteredUsers = allUsers?.filter(u => u.displayName.toLowerCase().includes(search.toLowerCase()) && u.id !== currentUser?.uid);
