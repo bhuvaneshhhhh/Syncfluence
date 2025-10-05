@@ -6,6 +6,7 @@ import {
   LogOut,
   MessageSquare,
   MessageSquareText,
+  Plus,
   Search,
   Settings,
   Users,
@@ -21,6 +22,7 @@ import {
   SidebarFooter,
   SidebarSeparator,
   SidebarMenuBadge,
+  SidebarGroupAction,
 } from '@/components/ui/sidebar';
 import {
   DropdownMenu,
@@ -31,13 +33,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth, useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, addDoc, getDocs, doc } from 'firebase/firestore';
+import { collection, query, where, addDoc, getDocs, doc, serverTimestamp } from 'firebase/firestore';
 import type { Room, User } from '@/lib/types';
 import { UserAvatar } from './user-avatar';
 import { Button } from '../ui/button';
 import { signOut } from 'firebase/auth';
 import { useEffect, useState } from 'react';
-import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandInput, DialogTitle, DialogDescription } from '../ui/command';
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 function DirectMessageItem({ room }: { room: Room }) {
   const firestore = useFirestore();
@@ -88,6 +94,61 @@ function DirectMessageItem({ room }: { room: Room }) {
   );
 }
 
+function CreateChannelDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
+    const [channelName, setChannelName] = useState('');
+    const { toast } = useToast();
+    const firestore = useFirestore();
+    const { user: currentUser } = useUser();
+    const router = useRouter();
+
+    const handleCreateChannel = async () => {
+        if (!channelName.trim() || !currentUser) return;
+
+        try {
+            const newRoom: Omit<Room, 'id'> = {
+                name: channelName,
+                type: 'channel',
+                userIds: [currentUser.uid],
+                privacy: 'public', // Default to public for now
+            };
+            const docRef = await addDoc(collection(firestore, 'chatRooms'), newRoom);
+            toast({ title: 'Channel created!', description: `#${channelName} is now live.` });
+            onOpenChange(false);
+            setChannelName('');
+            router.push(`/chat/${docRef.id}`);
+        } catch (error) {
+            console.error('Error creating channel:', error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not create channel.' });
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Create a new channel</DialogTitle>
+                    <DialogDescription>
+                        Channels are for topic-based conversations. Give your new channel a name.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 py-2">
+                    <Label htmlFor="channel-name">Channel Name</Label>
+                    <Input
+                        id="channel-name"
+                        placeholder="e.g. project-gamma"
+                        value={channelName}
+                        onChange={(e) => setChannelName(e.target.value)}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleCreateChannel} disabled={!channelName.trim()}>Create Channel</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 
 export default function SidebarContentComponent() {
   const router = useRouter();
@@ -100,13 +161,12 @@ export default function SidebarContentComponent() {
   
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [isCreateChannelOpen, setCreateChannelOpen] = useState(false);
+
 
   // Fetch all users for search
    const allUsersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // This query might need to be secured depending on your rules.
-    // For now, it fetches all users to enable searching.
-    // If your rules are strict, you might need a different approach (e.g., a search endpoint).
     return query(collection(firestore, 'users'));
   }, [firestore]);
   const { data: allUsers } = useCollection<User>(allUsersQuery);
@@ -197,6 +257,9 @@ export default function SidebarContentComponent() {
               <MessageSquare className="mr-2" />
               Channels
             </SidebarGroupLabel>
+             <SidebarGroupAction asChild>
+                <button onClick={() => setCreateChannelOpen(true)}><Plus /></button>
+            </SidebarGroupAction>
             {channels?.map(room => (
               <SidebarMenuItem key={room.id}>
                 <Link href={`/chat/${room.id}`} className="w-full">
@@ -253,9 +316,7 @@ export default function SidebarContentComponent() {
       </SidebarContent>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <DialogTitle className="sr-only">Search Users</DialogTitle>
-        <DialogDescription className="sr-only">Search for users to start a new direct message.</DialogDescription>
-        <CommandInput placeholder="Search for users by name..." value={search} onValueChange={setSearch} />
+         <CommandInput placeholder="Search for users by name..." value={search} onValueChange={setSearch} />
         <CommandList>
           <CommandEmpty>{search.length > 1 ? 'No users found.' : 'Type to search for users.'}</CommandEmpty>
           <CommandGroup heading="Users">
@@ -268,6 +329,8 @@ export default function SidebarContentComponent() {
           </CommandGroup>
         </CommandList>
       </CommandDialog>
+      
+      <CreateChannelDialog open={isCreateChannelOpen} onOpenChange={setCreateChannelOpen} />
     </>
   );
 }

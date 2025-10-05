@@ -1,5 +1,6 @@
 export type User = {
   id: string; // This will be the Firebase uid
+  uid: string; // This will be the Firebase uid
   displayName: string;
   email: string | null;
   avatarUrl: string;
@@ -12,9 +13,9 @@ export type Room = {
   id: string;
   name: string;
   type: 'channel' | 'dm';
-  userIds?: string[];
+  userIds: string[];
   unreadCount?: number;
-  privacy: 'public' | 'private';
+  privacy?: 'public' | 'private';
   password?: string;
 };
 

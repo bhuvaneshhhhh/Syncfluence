@@ -8,22 +8,28 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { Task } from '@/lib/types';
+import type { Task, User as AppUser } from '@/lib/types';
 import { ListTodo, UserCircle } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
+import { useFirestore, useCollection } from '@/firebase';
+import { doc, updateDoc, collection, query, where } from 'firebase/firestore';
 
 type TaskSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tasks: Task[];
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  roomSlug: string;
 };
 
-export default function TaskSheet({ open, onOpenChange, tasks, setTasks }: TaskSheetProps) {
-    const handleTaskCheck = (taskId: string, checked: boolean) => {
-        setTasks(tasks.map(task => task.id === taskId ? {...task, completed: checked} : task));
+export default function TaskSheet({ open, onOpenChange, tasks, roomSlug }: TaskSheetProps) {
+    const firestore = useFirestore();
+
+    const handleTaskCheck = async (taskId: string, checked: boolean) => {
+        if (!firestore || !roomSlug) return;
+        const taskRef = doc(firestore, 'chatRooms', roomSlug, 'tasks', taskId);
+        await updateDoc(taskRef, { completed: checked });
     }
 
   return (
@@ -52,7 +58,7 @@ export default function TaskSheet({ open, onOpenChange, tasks, setTasks }: TaskS
                             className="mt-1"
                         />
                         <label htmlFor={`task-${task.id}`} className="flex-1 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            <span className={cn(task.completed && "line-through text-muted-foreground")}>{task.task}</span>
+                            <span className={task.completed ? "line-through text-muted-foreground" : ""}>{task.task}</span>
                         </label>
                     </div>
                     {task.assignee && (
