@@ -61,18 +61,21 @@ export default function SettingsPage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    values: {
-      displayName: user?.displayName || '',
-      bio: '', // Will be fetched from Firestore
-      email: user?.email || '',
+    defaultValues: {
+      displayName: '',
+      bio: '',
+      email: '',
       password: '',
       currentPassword: '',
     },
   });
-
-  // Fetch bio from Firestore once user and firestore are available
+  
+  // Set form values once user data is loaded
   useEffect(() => {
     if (user && firestore) {
+      form.setValue('displayName', user.displayName || '');
+      form.setValue('email', user.email || '');
+
       const userDocRef = doc(firestore, 'users', user.uid);
       import('firebase/firestore').then(({ getDoc }) => {
         getDoc(userDocRef).then((docSnap) => {
@@ -83,6 +86,7 @@ export default function SettingsPage() {
       });
     }
   }, [user, firestore, form]);
+
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -272,6 +276,7 @@ export default function SettingsPage() {
                      <Card className="bg-secondary/50">
                         <CardHeader>
                             <CardTitle className='text-lg'>Account Credentials</CardTitle>
+                             <CardDescription>Your email is your permanent login ID. To change your password, enter your current and new password below.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <FormItem>
@@ -283,9 +288,9 @@ export default function SettingsPage() {
                                 name="currentPassword"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Current Password</FormLabel>
+                                    <FormLabel>Current Password (required to change)</FormLabel>
                                     <FormControl>
-                                        <Input type="password" placeholder="Enter current password to change it" {...field} />
+                                        <Input type="password" placeholder="Enter current password" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                     </FormItem>
