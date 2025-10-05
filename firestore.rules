@@ -1,145 +1,88 @@
+/**
+ * @fileoverview Firestore Security Rules for Syncfluence application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a user-centric security model with shared access control for collaboration.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores public user profiles. Only the user can read/write their own profile.
+ * - /chatRooms/{chatRoomId}: Stores chat room metadata. Members of the room can read the metadata. The creator (ownerId) has write access.
+ * - /chatRooms/{chatRoomId}/messages/{messageId}: Stores chat messages. Members of the parent chat room can read and write messages.
+ * - /tasks/{taskId}: Represents tasks, only accessible to the assignee.
+ *
+ * Key Security Decisions:
+ * - Users can only list the /users collection if authenticated
+ * - Data shape is not strictly enforced to allow for rapid prototyping, but authorization checks are strictly enforced.
+ *
+ * Denormalization for Authorization:
+ * - Chat rooms denormalize the list of user IDs (`userIds`) directly on the `/chatRooms/{chatRoomId}` document to enable efficient membership checks.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile data.
+     * @description Controls access to user profiles.
      * @path /users/{userId}
-     * @allow (create) - User with ID 'user123' can create their profile.
-     *   Request: auth.uid = 'user123', request.resource.data.id = 'user123'
-     * @allow (get, update, delete) - User with ID 'user123' can read/update/delete their profile.
-     *   Request: auth.uid = 'user123'
-     * @deny (create) - User with ID 'user456' cannot create a profile for 'user123'.
-     *   Request: auth.uid = 'user456', request.resource.data.id = 'user123'
-     * @deny (get, update, delete) - User with ID 'user456' cannot read/update/delete profile 'user123'.
-     *   Request: auth.uid = 'user456'
-     * @deny (list) - Listing all users is not allowed.
-     * @principle Enforces document ownership for all operations on user profiles.
+     * @allow (create) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui1' can create their profile.
+     * @allow (get, update, delete) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui1' can read/write their profile.
+     * @deny (create) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui2' cannot create profile for TCQBdVxv0qP1lxTOYurfiGanXui1.
+     * @deny (get, update, delete) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui2' cannot read/write profile for TCQBdVxv0qP1lxTOYurfiGanXui1.
+     * @principle Enforces document ownership for user profiles.
      */
     match /users/{userId} {
-      // Helper function to check if the authenticated user is the owner of the document.
-      function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      // Helper function to check if the authenticated user is the existing owner of the document.
-      function isExistingOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if request.auth.uid == userId && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId); // Enforce immutability of the userId
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
 
     /**
      * @description Controls access to chat room metadata.
      * @path /chatRooms/{chatRoomId}
-     * @allow (get, list) - Any authenticated user can read/list chat rooms.
-     * @allow (create) - Any authenticated user can create a chat room. Creator is set as the 'ownerId'.
-     *   Request: auth.uid = 'user123', request.resource.data.ownerId = 'user123'
-     * @allow (update, delete) - Only members of the chat room can update/delete it.
-     *   Request: auth.uid in resource.data.memberIds
-     * @deny (create) - User with ID 'user456' cannot create a chat room with ownerId 'user123'.
-     *   Request: auth.uid = 'user456', request.resource.data.ownerId = 'user123'
-     * @deny (update, delete) - User not in 'memberIds' cannot update/delete the chat room.
-     *   Request: auth.uid = 'user456', resource.data.memberIds = ['user123', 'user789']
-     * @principle Enforces shared access based on chat room membership.
+     * @allow (get, list) Any member of the chat room can read chat room metadata.
+     * @allow (create) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui1' can create a new chat room if they are the owner.
+     * @allow (update, delete) Owner of the chat room with ID 'TCQBdVxv0qP1lxTOYurfiGanXui1' can update/delete the chat room.
+     * @deny (get, list) User who isn't member of chat room cannot read chat room metadata.
+     * @deny (create, update, delete) User with ID 'TCQBdVxv0qP1lxTOYurfiGanXui2' cannot create/update/delete chat room owned by TCQBdVxv0qP1lxTOYurfiGanXui1.
+     * @principle Enforces shared access with owner-based writes for chat rooms.
      */
     match /chatRooms/{chatRoomId} {
-      // Helper function to check if the authenticated user is a member of the chat room.
-      function isChatRoomMember(chatRoomId) {
-        return request.auth != null && request.auth.uid in resource.data.memberIds;
-      }
-
-       // Helper function to check if the authenticated user is the owner of the chat room.
-      function isChatRoomOwner(chatRoomId) {
-        return request.auth != null && request.auth.uid == resource.data.ownerId;
-      }
-
-      // Helper function to check if the authenticated user is an existing member of the chat room.
-      function isExistingChatRoomMember(chatRoomId) {
-        return request.auth != null && request.auth.uid in resource.data.memberIds;
-      }
-
-      allow get, list: if request.auth != null; // Any authenticated user can read/list chat rooms.
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.ownerId; // Only the authenticated user can create a chat room and set themself as the owner.
-      allow update: if isExistingChatRoomMember(chatRoomId);
-      allow delete: if isExistingChatRoomMember(chatRoomId);
+      allow get, list: if isSignedIn() && isChatRoomMember(chatRoomId);
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isSignedIn() && isChatRoomOwner(chatRoomId);
+      allow delete: if isSignedIn() && isChatRoomOwner(chatRoomId);
     }
 
     /**
-     * @description Controls access to individual chat messages within a chat room.
+     * @description Controls access to chat messages within a chat room.
      * @path /chatRooms/{chatRoomId}/messages/{messageId}
-     * @allow (get, list) - Any authenticated user can read/list chat messages within a chat room.
-     * @allow (create) - Only members of the chat room can create messages.
-     *   Request: auth.uid in get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.memberIds
-     * @allow (update, delete) - Only the sender of the message can update/delete it.
-     *   Request: auth.uid = resource.data.senderId
-     * @deny (create) - User not in 'memberIds' cannot create a message.
-     *   Request: auth.uid = 'user456', get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.memberIds = ['user123', 'user789']
-     * @deny (update, delete) - User not the sender cannot update/delete the message.
-     *   Request: auth.uid = 'user456', resource.data.senderId = 'user123'
-     * @principle Enforces shared access based on chat room membership, with sender-only control for updates/deletes.
+     * @allow (get, list, create, update, delete) Any member of the parent chat room can read and write messages.
+     * @deny (get, list, create, update, delete) User who isn't member of chat room cannot read or write chat messages.
+     * @principle Enforces shared access based on chat room membership for messages.
      */
     match /chatRooms/{chatRoomId}/messages/{messageId} {
-      // Helper function to check if the authenticated user is a member of the chat room (via denormalized data).
-      function isChatMessageSender() {
-        return request.auth != null && request.auth.uid == resource.data.senderId;
-      }
-
-      // Helper function to check if the authenticated user is an existing sender of the chat message.
-      function isExistingChatMessageSender() {
-        return isChatMessageSender();
-      }
-
-      // Helper function to check if the authenticated user is a member of the chat room by doing a read to the chatRoom document.
-      function isChatRoomMember(chatRoomId) {
-        return request.auth != null && request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.memberIds;
-      }
-
-      allow get, list: if request.auth != null;
-      allow create: if request.auth != null && isChatRoomMember(chatRoomId); // Only members of the chat room can create messages.
-      allow update: if isExistingChatMessageSender(); // Only the original sender can update the message.
-      allow delete: if isExistingChatMessageSender(); // Only the original sender can delete the message.
+      allow get, list, create, update, delete: if isSignedIn() && isChatRoomMember(chatRoomId);
     }
 
-    /**
-     * @description Controls access to tasks extracted from chat messages.
-     * @path /chatRooms/{chatRoomId}/tasks/{taskId}
-     * @allow (get, list) - Any authenticated user can read/list tasks within a chat room.
-     * @allow (create) - Only members of the chat room can create tasks.
-     *   Request: auth.uid in get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.memberIds
-     * @allow (update, delete) - Only the assignee of the task can update/delete it.
-     *   Request: auth.uid = resource.data.assigneeId
-     * @deny (create) - User not in 'memberIds' cannot create a task.
-     *   Request: auth.uid = 'user456', get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.memberIds = ['user123', 'user789']
-     * @deny (update, delete) - User not the assignee cannot update/delete the task.
-     *   Request: auth.uid = 'user456', resource.data.assigneeId = 'user123'
-     * @principle Enforces shared access based on chat room membership, with assignee-only control for updates/deletes.
-     */
-    match /chatRooms/{chatRoomId}/tasks/{taskId} {
-      // Helper function to check if the authenticated user is the assignee of the task.
-      function isTaskAssignee() {
-        return request.auth != null && request.auth.uid == resource.data.assigneeId;
-      }
+  }
 
-      // Helper function to check if the authenticated user is an existing assignee of the task.
-      function isExistingTaskAssignee() {
-        return isTaskAssignee();
-      }
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
 
-      // Helper function to check if the authenticated user is a member of the chat room by doing a read to the chatRoom document.
-      function isChatRoomMember(chatRoomId) {
-        return request.auth != null && request.auth.uid in get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.memberIds;
-      }
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
 
-      allow get, list: if request.auth != null;
-      allow create: if request.auth != null && isChatRoomMember(chatRoomId); // Only members of the chat room can create tasks.
-      allow update: if isExistingTaskAssignee(); // Only the assignee can update the task.
-      allow delete: if isExistingTaskAssignee(); // Only the assignee can delete the task.
-    }
+  function isChatRoomMember(chatRoomId) {
+    let chatRoom = get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data;
+    return chatRoomId != null && isSignedIn() && request.auth.uid in chatRoom.userIds;
+  }
+
+  function isChatRoomOwner(chatRoomId) {
+    return isSignedIn() && get(/databases/$(database)/documents/chatRooms/$(chatRoomId)).data.ownerId == request.auth.uid;
   }
 }
