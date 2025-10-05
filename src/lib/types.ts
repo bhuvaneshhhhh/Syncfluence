@@ -4,6 +4,8 @@ export type User = {
   email: string | null;
   avatarUrl: string;
   isOnline?: boolean;
+  bio?: string;
+  isAnonymous?: boolean;
 };
 
 export type Room = {
@@ -12,6 +14,8 @@ export type Room = {
   type: 'channel' | 'dm';
   userIds?: string[];
   unreadCount?: number;
+  privacy: 'public' | 'private';
+  password?: string;
 };
 
 export type Message = {

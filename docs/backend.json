@@ -6,11 +6,13 @@
       "description": "Represents a user in the Syncfluence application.",
       "properties": {
         "uid": { "type": "string", "description": "Firebase Authentication user ID." },
-        "displayName": { "type": "string", "description": "The user's display name." },
-        "email": { "type": "string", "format": "email", "description": "The user's email address." },
-        "avatarUrl": { "type": "string", "format": "uri", "description": "URL of the user's profile picture." }
+        "displayName": { "type": "string", "description": "The user's unique display name." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address (optional, for permanent accounts)." },
+        "avatarUrl": { "type": "string", "format": "uri", "description": "URL of the user's profile picture." },
+        "bio": { "type": "string", "description": "A short bio for the user." },
+        "isAnonymous": { "type": "boolean", "description": "True if the user is anonymous." }
       },
-      "required": ["uid", "displayName", "email"]
+      "required": ["uid", "displayName", "isAnonymous"]
     },
     "ChatRoom": {
       "title": "ChatRoom",
@@ -20,9 +22,11 @@
         "name": { "type": "string", "description": "Name of the chat room." },
         "type": { "type": "string", "enum": ["channel", "dm"], "description": "The type of chat room." },
         "ownerId": { "type": "string", "description": "ID of the user who created the chat room (for channels)." },
-        "userIds": { "type": "array", "items": { "type": "string" }, "description": "List of user IDs that are members of the chat room." }
+        "userIds": { "type": "array", "items": { "type": "string" }, "description": "List of user IDs that are members of the chat room." },
+        "privacy": { "type": "string", "enum": ["public", "private"], "description": "The privacy setting of the chat room." },
+        "password": { "type": "string", "description": "Password for private chat rooms (optional)." }
       },
-      "required": ["name", "type", "userIds"]
+      "required": ["name", "type", "userIds", "privacy"]
     },
     "ChatMessage": {
       "title": "ChatMessage",
@@ -53,7 +57,7 @@
     }
   },
   "auth": {
-    "providers": ["password", "google.com"]
+    "providers": ["password", "google.com", "anonymous"]
   },
   "firestore": {
     "structure": [

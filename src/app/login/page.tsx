@@ -1,4 +1,4 @@
-import LoginForm from '@/components/auth/login-form';
+import AnonymousLoginForm from '@/components/auth/anonymous-login-form';
 import ClientOnly from '@/components/client-only';
 import { MessageSquareText } from 'lucide-react';
 
@@ -11,10 +11,10 @@ export default function LoginPage() {
             <MessageSquareText className="h-8 w-8" />
             <h1 className="text-3xl font-bold font-headline text-foreground">Syncfluence</h1>
           </div>
-          <p className="text-muted-foreground">Welcome back! Please sign in to continue.</p>
+          <p className="text-muted-foreground">Join the conversation. Pick a name to start.</p>
         </div>
         <ClientOnly>
-          <LoginForm />
+          <AnonymousLoginForm />
         </ClientOnly>
       </div>
     </div>
