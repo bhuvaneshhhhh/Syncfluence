@@ -9,7 +9,8 @@ import type { Room, Message, Task, User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import TaskSheet from './task-sheet';
-import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser, useFirebaseApp } from '@/firebase';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, where, getDocs, updateDoc, writeBatch } from 'firebase/firestore';
 import { extractTasksFromMessages } from '@/ai/flows/extract-tasks-from-messages';
 
@@ -17,6 +18,8 @@ export default function ChatRoom({ roomSlug }: { roomSlug: string }) {
   const { toast } = useToast();
   const router = useRouter();
   const firestore = useFirestore();
+  const firebaseApp = useFirebaseApp();
+  const storage = getStorage(firebaseApp);
   const { user: currentUser, isUserLoading } = useUser();
   
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -63,9 +66,24 @@ export default function ChatRoom({ roomSlug }: { roomSlug: string }) {
   const handleSendMessage = async (content: string, file?: File) => {
     if (!room || !currentUser || !firestore) return;
 
-    // We don't handle file uploads yet, but this is where you would.
+    let fileUrl: string | undefined = undefined;
+    let fileName: string | undefined = undefined;
+
     if (file) {
-        toast({ title: "File upload not implemented", description: "This is a demo."});
+        try {
+            const storageRef = ref(storage, `chat-files/${room.id}/${currentUser.uid}/${file.name}`);
+            await uploadBytes(storageRef, file);
+            fileUrl = await getDownloadURL(storageRef);
+            fileName = file.name;
+        } catch (error) {
+            console.error("Error uploading file:", error);
+            toast({
+                variant: "destructive",
+                title: "File Upload Failed",
+                description: "Could not upload your file. Please try again.",
+            });
+            return;
+        }
     }
 
     const newMessageData: Omit<Message, 'id'> = {
@@ -73,7 +91,7 @@ export default function ChatRoom({ roomSlug }: { roomSlug: string }) {
       userId: currentUser.uid,
       content,
       timestamp: serverTimestamp(),
-      ...(file ? { fileName: file.name } : {}),
+      ...(fileUrl && { fileUrl, fileName }),
     };
     
     await addDoc(collection(firestore, 'chatRooms', room.id, 'messages'), newMessageData);
