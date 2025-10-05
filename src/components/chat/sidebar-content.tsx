@@ -58,11 +58,12 @@ export default function SidebarContentComponent() {
   // Fetch all users for search
   const usersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
+    // This is okay, assuming all users' profiles are public.
     return query(collection(firestore, "users"));
   }, [firestore]);
   const { data: allUsers } = useCollection<User>(usersQuery);
 
-  // Fetch channels (public rooms) user is a member of
+  // Fetch channels user is a member of
   const channelsQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser?.uid) return null;
     return query(
