@@ -67,7 +67,7 @@ export default function ManageMembersSheet({
   };
 
   const nonMemberUsers = allUsers.filter(
-    (user) => !currentUsers.some((member) => member.id === user.id)
+    (user) => !currentUsers.some((member) => member.id === user.id) && !user.isAnonymous
   );
 
   const filteredUsers = searchQuery
