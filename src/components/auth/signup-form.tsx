@@ -100,10 +100,18 @@ export default function SignupForm() {
       router.push('/chat');
     } catch (error: any) {
       console.error(error);
+      let title = `${provider.providerId === 'google.com' ? 'Google' : 'GitHub'} Sign-In Failed`;
+      let description = error.message || 'Could not sign in.';
+      
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        title = 'Account Exists';
+        description = 'An account with this email already exists using a different sign-in method. Please sign in using the original provider.';
+      }
+
       toast({
         variant: 'destructive',
-        title: `${provider.providerId === 'google.com' ? 'Google' : 'GitHub'} Sign-In Failed`,
-        description: error.message || 'Could not sign in.',
+        title: title,
+        description: description,
       });
     } finally {
       if (provider.providerId === 'google.com') {

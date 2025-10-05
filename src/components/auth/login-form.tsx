@@ -53,33 +53,16 @@ export default function LoginForm() {
       setIsLoading(false);
     }
   };
-
-  const handleGoogleSignIn = async () => {
-    setGoogleIsLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      toast({
-        title: 'Login Successful',
-        description: 'Welcome back!',
-      });
-      router.push('/chat');
-    } catch (error: any) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Google Sign-In Failed',
-        description: error.message || 'Could not sign in with Google.',
-      });
-    } finally {
-      setGoogleIsLoading(false);
+  
+  const handleProviderSignIn = async (provider: GoogleAuthProvider | GithubAuthProvider) => {
+    const providerId = provider.providerId;
+    if (providerId === 'google.com') {
+      setGoogleIsLoading(true);
+    } else if (providerId === 'github.com') {
+      setGithubIsLoading(true);
     }
-  };
 
-  const handleGithubSignIn = async () => {
-    setGithubIsLoading(true);
     try {
-      const provider = new GithubAuthProvider();
       await signInWithPopup(auth, provider);
       toast({
         title: 'Login Successful',
@@ -88,13 +71,25 @@ export default function LoginForm() {
       router.push('/chat');
     } catch (error: any) {
       console.error(error);
+      let title = 'Sign-In Failed';
+      let description = error.message || 'Could not sign in.';
+
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        title = 'Account Exists';
+        description = 'An account with this email already exists using a different sign-in method. Please sign in with the original provider.';
+      }
+      
       toast({
         variant: 'destructive',
-        title: 'GitHub Sign-In Failed',
-        description: error.message || 'Could not sign in with GitHub.',
+        title: title,
+        description: description,
       });
     } finally {
-      setGithubIsLoading(false);
+       if (providerId === 'google.com') {
+        setGoogleIsLoading(false);
+      } else if (providerId === 'github.com') {
+        setGithubIsLoading(false);
+      }
     }
   };
 
@@ -137,11 +132,11 @@ export default function LoginForm() {
           </div>
 
           <div className="w-full grid grid-cols-2 gap-4">
-            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading || isGithubLoading} onClick={handleGoogleSignIn}>
+            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading || isGithubLoading} onClick={() => handleProviderSignIn(new GoogleAuthProvider())}>
               {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
               Google
             </Button>
-            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading || isGithubLoading} onClick={handleGithubSignIn}>
+            <Button variant="outline" className="w-full" type="button" disabled={isLoading || isGoogleLoading || isGithubLoading} onClick={() => handleProviderSignIn(new GithubAuthProvider())}>
               {isGithubLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Github className="mr-2 h-4 w-4" />}
               GitHub
             </Button>
