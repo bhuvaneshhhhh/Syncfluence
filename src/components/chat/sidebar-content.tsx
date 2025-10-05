@@ -97,8 +97,16 @@ export default function SidebarContentComponent() {
   const handleSelectUser = async (user: User) => {
     if (!currentUser || !firestore) return;
     
-    // Check if a DM room already exists
-    const existingDm = dms?.find(dm => dm.userIds.includes(user.id));
+    // Check if a DM room already exists with this user
+    const existingDmQuery = query(
+      collection(firestore, 'chatRooms'),
+      where('type', '==', 'dm'),
+      where('userIds', 'array-contains', currentUser.uid)
+    );
+
+    const querySnapshot = await getDocs(existingDmQuery);
+    const existingDm = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}) as Room).find(dm => dm.userIds.includes(user.id));
+
     if (existingDm) {
       router.push(`/chat/${existingDm.id}`);
       setOpen(false);
