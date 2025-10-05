@@ -35,9 +35,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser, useFirebaseApp } from '@/firebase';
 import { UserAvatar } from '@/components/chat/user-avatar';
 import { getStorage } from 'firebase/storage';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
 
 const formSchema = z.object({
   displayName: z.string().min(3, 'Too short').max(50, 'Too long'),
@@ -51,7 +53,8 @@ export default function SettingsPage() {
   const router = useRouter();
   const auth = useAuth();
   const firestore = useFirestore();
-  const storage = getStorage();
+  const firebaseApp = useFirebaseApp();
+  const storage = getStorage(firebaseApp);
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
@@ -273,43 +276,56 @@ export default function SettingsPage() {
                         </CardContent>
                     </Card>
                 ) : (
-                     <Card className="bg-secondary/50">
+                    <Card className="bg-secondary/50">
                         <CardHeader>
                             <CardTitle className='text-lg'>Account Credentials</CardTitle>
-                             <CardDescription>Your email is your permanent login ID. To change your password, enter your current and new password below.</CardDescription>
+                             <CardDescription>Your email is your permanent login ID. You can change your password below.</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <Input value={user.email || ''} disabled />
-                            </FormItem>
-                            <FormField
-                                control={form.control}
-                                name="currentPassword"
-                                render={({ field }) => (
+                        <Collapsible>
+                            <CollapsibleContent asChild>
+                                <CardContent className="space-y-4 pt-4">
                                     <FormItem>
-                                    <FormLabel>Current Password (required to change)</FormLabel>
-                                    <FormControl>
-                                        <Input type="password" placeholder="Enter current password" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
+                                        <FormLabel>Email</FormLabel>
+                                        <Input value={user.email || ''} disabled />
                                     </FormItem>
-                                )}
-                                />
-                            <FormField
-                                control={form.control}
-                                name="password"
-                                render={({ field }) => (
-                                    <FormItem>
-                                    <FormLabel>New Password</FormLabel>
-                                    <FormControl>
-                                        <Input type="password" placeholder="Enter new password" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                                />
-                        </CardContent>
+                                    <FormField
+                                        control={form.control}
+                                        name="currentPassword"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Current Password (required to change)</FormLabel>
+                                            <FormControl>
+                                                <Input type="password" placeholder="Enter current password" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                        />
+                                    <FormField
+                                        control={form.control}
+                                        name="password"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>New Password</FormLabel>
+                                            <FormControl>
+                                                <Input type="password" placeholder="Enter new password" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                        />
+                                </CardContent>
+                            </CollapsibleContent>
+                             <div className='flex items-center justify-between p-6 pt-2'>
+                                <span>Change Password</span>
+                                <CollapsibleTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="w-9 p-0">
+                                        <ChevronDown className="h-4 w-4" />
+                                        <span className="sr-only">Toggle</span>
+                                    </Button>
+                                </CollapsibleTrigger>
+                             </div>
+                        </Collapsible>
                     </Card>
                 )}
 
@@ -326,3 +342,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
