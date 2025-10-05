@@ -1,252 +1,86 @@
 {
   "entities": {
-    "UserProfile": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "UserProfile",
+    "User": {
+      "title": "User",
       "type": "object",
-      "description": "Represents a user profile in the Syncfluence application.",
+      "description": "Represents a user in the Syncfluence application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user profile."
-        },
-        "username": {
-          "type": "string",
-          "description": "The user's chosen username.",
-          "format": "string"
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address.",
-          "format": "email"
-        },
-        "displayName": {
-          "type": "string",
-          "description": "The user's display name.",
-          "format": "string"
-        },
-        "profilePictureUrl": {
-          "type": "string",
-          "description": "URL of the user's profile picture.",
-          "format": "uri"
-        },
-        "friends": {
-          "type": "array",
-          "description": "List of user IDs that are friends with this user.",
-          "items": {
-            "type": "string"
-          }
-        }
+        "uid": { "type": "string", "description": "Firebase Authentication user ID." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "avatarUrl": { "type": "string", "format": "uri", "description": "URL of the user's profile picture." }
       },
-      "required": [
-        "id",
-        "username",
-        "email",
-        "displayName"
-      ]
+      "required": ["uid", "displayName", "email"]
     },
     "ChatRoom": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ChatRoom",
       "type": "object",
       "description": "Represents a chat room within the application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the chat room."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the chat room.",
-          "format": "string"
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the chat room.",
-          "format": "string"
-        },
-        "ownerId": {
-          "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N ChatRoom). ID of the user who created the chat room."
-        },
-        "memberIds": {
-          "type": "array",
-          "description": "References to UserProfiles. (Relationship: UserProfile N:N ChatRoom) List of user IDs that are members of the chat room.",
-          "items": {
-            "type": "string"
-          }
-        }
+        "name": { "type": "string", "description": "Name of the chat room." },
+        "type": { "type": "string", "enum": ["channel", "dm"], "description": "The type of chat room." },
+        "ownerId": { "type": "string", "description": "ID of the user who created the chat room (for channels)." },
+        "userIds": { "type": "array", "items": { "type": "string" }, "description": "List of user IDs that are members of the chat room." }
       },
-      "required": [
-        "id",
-        "name",
-        "ownerId"
-      ]
+      "required": ["name", "type", "userIds"]
     },
     "ChatMessage": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ChatMessage",
       "type": "object",
       "description": "Represents a single message within a chat room.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the chat message."
-        },
-        "roomId": {
-          "type": "string",
-          "description": "Reference to ChatRoom. (Relationship: ChatRoom 1:N ChatMessage) ID of the chat room this message belongs to."
-        },
-        "senderId": {
-          "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N ChatMessage). ID of the user who sent the message."
-        },
-        "content": {
-          "type": "string",
-          "description": "The content of the message."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp of when the message was sent.",
-          "format": "date-time"
-        },
-        "fileUrl": {
-          "type": "string",
-          "description": "URL of the file attached to the message, if any.",
-          "format": "uri"
-        }
+        "roomId": { "type": "string", "description": "ID of the chat room this message belongs to." },
+        "userId": { "type": "string", "description": "ID of the user who sent the message." },
+        "content": { "type": "string", "description": "The content of the message." },
+        "timestamp": { "type": "object", "description": "Firestore server timestamp of when the message was sent." },
+        "fileUrl": { "type": "string", "format": "uri", "description": "URL of the file attached to the message, if any." },
+        "fileName": { "type": "string", "description": "Name of the attached file." }
       },
-      "required": [
-        "id",
-        "roomId",
-        "senderId",
-        "content",
-        "timestamp"
-      ]
+      "required": ["roomId", "userId", "content", "timestamp"]
     },
     "Task": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Task",
       "type": "object",
       "description": "Represents a task extracted from chat messages.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the task."
-        },
-        "roomId": {
-          "type": "string",
-          "description": "Reference to ChatRoom. (Relationship: ChatRoom 1:N Task). ID of the chat room this task belongs to."
-        },
-        "assigneeId": {
-          "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Task). ID of the user the task is assigned to."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the task."
-        },
-        "dueDate": {
-          "type": "string",
-          "description": "Due date for the task.",
-          "format": "date-time"
-        },
-        "completed": {
-          "type": "boolean",
-          "description": "Indicates whether the task is completed."
-        }
+        "roomId": { "type": "string", "description": "ID of the chat room this task belongs to." },
+        "assigneeId": { "type": "string", "description": "ID of the user the task is assigned to." },
+        "description": { "type": "string", "description": "Description of the task." },
+        "dueDate": { "type": "string", "format": "date-time", "description": "Due date for the task." },
+        "completed": { "type": "boolean", "description": "Indicates whether the task is completed." }
       },
-      "required": [
-        "id",
-        "roomId",
-        "assigneeId",
-        "description",
-        "dueDate",
-        "completed"
-      ]
+      "required": ["roomId", "description", "completed"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "google.com"]
   },
   "firestore": {
     "structure": [
       {
         "path": "/users/{userId}",
         "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores user profile information.  Path-based ownership ensures only the user can read/write their profile data.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
+          "entityName": "User",
+          "schema": { "$ref": "#/entities/User" },
+          "description": "Stores public user profile information."
         }
       },
       {
         "path": "/chatRooms/{chatRoomId}",
         "definition": {
           "entityName": "ChatRoom",
-          "schema": {
-            "$ref": "#/backend/entities/ChatRoom"
-          },
-          "description": "Stores chat room metadata, including the owner and members. The 'memberIds' array is used for authorization.",
-          "params": [
-            {
-              "name": "chatRoomId",
-              "description": "The unique identifier for the chat room."
-            }
-          ]
+          "schema": { "$ref": "#/entities/ChatRoom" },
+          "description": "Stores metadata for chat rooms. Members can read, creator can write."
         }
       },
       {
         "path": "/chatRooms/{chatRoomId}/messages/{messageId}",
         "definition": {
           "entityName": "ChatMessage",
-          "schema": {
-            "$ref": "#/backend/entities/ChatMessage"
-          },
-          "description": "Stores individual chat messages within a chat room. Includes denormalized 'memberIds' from the parent ChatRoom as the 'members' map for authorization independence.",
-          "params": [
-            {
-              "name": "chatRoomId",
-              "description": "The unique identifier for the chat room."
-            },
-            {
-              "name": "messageId",
-              "description": "The unique identifier for the chat message."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/chatRooms/{chatRoomId}/tasks/{taskId}",
-        "definition": {
-          "entityName": "Task",
-          "schema": {
-            "$ref": "#/backend/entities/Task"
-          },
-          "description": "Stores tasks extracted from chat messages.  Authorization is based on the user's membership in the parent chat room.",
-          "params": [
-            {
-              "name": "chatRoomId",
-              "description": "The unique identifier for the chat room."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            }
-          ]
+          "schema": { "$ref": "#/entities/ChatMessage" },
+          "description": "Stores messages for a chat room. Members of the room can read and write."
         }
       }
-    ],
-    "reasoning": "The Firestore data structure is designed to support the Syncfluence application's features, including real-time chat, user authentication, task extraction, and file uploads, while adhering to the principles of Authorization Independence, Clarity of Intent, DBAC, and QAPs. \n\n**Authorization Independence:**  Authorization independence is achieved through denormalization, most notably within the `chatRooms` collection and its subcollections.  The `memberIds` array from the `ChatRoom` document is denormalized by copying it into each `ChatMessage` document, stored in the `members` field. This eliminates the need for security rules to perform `get()` operations on the parent `ChatRoom` document when evaluating access to `ChatMessage` documents.  Similarly, the list of `friends` is stored directly within each `UserProfile` document, avoiding costly `get()` calls when evaluating friend relationships.\n\n**QAPs (Rules are not Filters):**  The structure facilitates secure `list` operations by ensuring that each collection contains documents with a homogeneous security posture. This is achieved by separating user profiles (`/users/{userId}`) from chat rooms (`/chatRooms/{chatRoomId}`), messages (`/chatRooms/{chatRoomId}/messages/{messageId}`), and tasks (`/chatRooms/{chatRoomId}/tasks/{taskId}`). The membership map in `ChatRoom` documents, along with denormalized membership in `ChatMessage` documents, enables efficient filtering based on user roles within chat rooms.\n\n**User Profiles:** User profiles are stored in a path-based structure under `/users/{userId}`, ensuring private data is directly owned by the user. The `friends` array within the `UserProfile` enables efficient management of friend relationships.\n\n**Chat Rooms:** Chat rooms are stored in the `/chatRooms/{chatRoomId}` collection. The `ownerId` field indicates the creator of the chat room, and the `memberIds` array stores the user IDs of all members.  \n\n**Chat Messages:** Chat messages are stored as subcollections within chat rooms at `/chatRooms/{chatRoomId}/messages/{messageId}`. The `senderId` field indicates the message sender.  The denormalized `members` map within each `ChatMessage` includes all `memberIds` of the parent ChatRoom.\n\n**Tasks:** Tasks extracted from chat messages are stored as subcollections within chat rooms at `/chatRooms/{chatRoomId}/tasks/{taskId}`.  The `assigneeId` field indicates the user to whom the task is assigned."
+    ]
   }
 }

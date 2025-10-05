@@ -1,8 +1,9 @@
 export type User = {
-  id: string;
-  name: string;
+  id: string; // This will be the Firebase uid
+  displayName: string;
+  email: string | null;
   avatarUrl: string;
-  isOnline: boolean;
+  isOnline?: boolean;
 };
 
 export type Room = {
@@ -18,7 +19,7 @@ export type Message = {
   roomId: string;
   userId: string;
   content: string;
-  timestamp: string;
+  timestamp: any; // Allow for Firestore Timestamp
   fileUrl?: string;
   fileName?: string;
 };

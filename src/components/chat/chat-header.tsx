@@ -3,10 +3,8 @@
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Sparkles, Users, ListTodo, Loader2 } from "lucide-react";
-import type { Room } from "@/lib/types";
-import { users } from "@/lib/data";
+import type { Room, User } from "@/lib/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,22 +19,22 @@ import { summarizeChatHistory } from "@/ai/flows/summarize-chat-history";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { useUser } from '@/firebase';
 
 type ChatHeaderProps = {
   room: Room;
+  roomUsers: User[];
   onShowTasks: () => void;
   taskCount: number;
 };
 
-export default function ChatHeader({ room, onShowTasks, taskCount }: ChatHeaderProps) {
+export default function ChatHeader({ room, roomUsers, onShowTasks, taskCount }: ChatHeaderProps) {
   const { toast } = useToast();
   const [showSummaryDialog, setShowSummaryDialog] = useState(false);
   const [summary, setSummary] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const { user: currentUser } = useUser();
 
-  const roomMembers = room.userIds
-    ? users.filter(u => room.userIds?.includes(u.id))
-    : users.slice(0, 4); // Fallback for channels
 
   const handleSummarize = async () => {
     setShowSummaryDialog(true);
@@ -57,17 +55,26 @@ export default function ChatHeader({ room, onShowTasks, taskCount }: ChatHeaderP
       setIsSummarizing(false);
     }
   };
+  
+  let headerName = room.name;
+  if(room.type === 'dm' && currentUser && roomUsers.length > 0) {
+    const otherUser = roomUsers.find(u => u.id !== currentUser.uid);
+    if(otherUser) {
+        headerName = otherUser.displayName;
+    }
+  }
+
 
   return (
     <>
       <div className="flex items-center p-4 border-b">
         <div className="flex-1">
           <h2 className="text-xl font-bold font-headline">
-            {room.type === 'channel' ? '# ' : ''}{room.name}
+            {room.type === 'channel' ? '# ' : ''}{headerName}
           </h2>
           <div className="flex items-center text-sm text-muted-foreground">
             <Users className="h-4 w-4 mr-2" />
-            <span>{roomMembers.length} members</span>
+            <span>{roomUsers.length} members</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -96,10 +103,10 @@ export default function ChatHeader({ room, onShowTasks, taskCount }: ChatHeaderP
             </TooltipProvider>
 
           <div className="flex -space-x-2 overflow-hidden">
-            {roomMembers.map(member => (
+            {roomUsers.map(member => (
               <Avatar key={member.id} className="inline-block h-8 w-8 rounded-full ring-2 ring-background">
-                <AvatarImage src={member.avatarUrl} alt={member.name} />
-                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                <AvatarImage src={member.avatarUrl} alt={member.displayName} />
+                <AvatarFallback>{member.displayName.charAt(0)}</AvatarFallback>
               </Avatar>
             ))}
           </div>

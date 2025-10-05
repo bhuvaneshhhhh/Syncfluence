@@ -4,22 +4,19 @@ import { PlaceHolderImages } from './placeholder-images';
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id)?.imageUrl || '';
 
 export const users: User[] = [
-  { id: 'user-you', name: 'You', avatarUrl: findImage('user-you'), isOnline: true },
-  { id: 'user-alex', name: 'Alex Ray', avatarUrl: findImage('user-alex'), isOnline: true },
-  { id: 'user-sam', name: 'Sam Doe', avatarUrl: findImage('user-sam'), isOnline: false },
-  { id: 'user-jordan', name: 'Jordan Lee', avatarUrl: findImage('user-jordan'), isOnline: true },
-  { id: 'user-taylor', name: 'Taylor Kim', avatarUrl: findImage('user-taylor'), isOnline: false },
-  { id: 'user-casey', name: 'Casey Smith', avatarUrl: findImage('user-casey'), isOnline: true },
+  { id: 'user-you', name: 'You', avatarUrl: `https://api.dicebear.com/8.x/lorelei/svg?seed=user-you`, isOnline: true },
+  { id: 'user-alex', name: 'Alex Ray', avatarUrl: `https://api.dicebear.com/8.x/lorelei/svg?seed=user-alex`, isOnline: true },
+  { id: 'user-sam', name: 'Sam Doe', avatarUrl: `https://api.dicebear.com/8.x/lorelei/svg?seed=user-sam`, isOnline: false },
+  { id: 'user-jordan', name: 'Jordan Lee', avatarUrl: `https://api.dicebear.com/8.x/lorelei/svg?seed=user-jordan`, isOnline: true },
+  { id: 'user-taylor', name: 'Taylor Kim', avatarUrl: `https://api.dicebear.com/8.x/lorelei/svg?seed=user-taylor`, isOnline: false },
+  { id: 'user-casey', name: 'Casey Smith', avatarUrl: `https://api.dicebear.com/8.x/lorelei/svg?seed=user-casey`, isOnline: true },
 ];
 
-export const rooms: Room[] = [
-  { id: 'general', name: 'general', type: 'channel', unreadCount: 3 },
-  { id: 'design-team', name: 'design-team', type: 'channel', unreadCount: 1 },
-  { id: 'engineering', name: 'engineering', type: 'channel' },
-  { id: 'project-exodus', name: 'project-exodus', type: 'channel' },
-  { id: 'dm-alex', name: 'Alex Ray', type: 'dm', userIds: ['user-you', 'user-alex'] },
-  { id: 'dm-jordan', name: 'Jordan Lee', type: 'dm', userIds: ['user-you', 'user-jordan'] },
-  { id: 'dm-casey', name: 'Casey Smith', type: 'dm', userIds: ['user-you', 'user-casey'] },
+export let rooms: Room[] = [
+  { id: 'general', name: 'general', type: 'channel', unreadCount: 3, userIds: users.map(u=>u.id) },
+  { id: 'design-team', name: 'design-team', type: 'channel', unreadCount: 1, userIds: users.map(u=>u.id) },
+  { id: 'engineering', name: 'engineering', type: 'channel', userIds: users.map(u=>u.id) },
+  { id: 'project-exodus', name: 'project-exodus', type: 'channel', userIds: users.map(u=>u.id) },
 ];
 
 export const messages: Message[] = [
@@ -77,17 +74,11 @@ export const messages: Message[] = [
     roomId: 'dm-alex',
     userId: 'user-you',
     content: "Sure, the usual spot at 12:30?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 58).toISOString(),
+    timestamp: new Date(Date.now() - 1000 * 58).toISOString(),
   },
 ];
 
 export const getRoomBySlug = (slug: string): Room | undefined => {
-  if (slug.startsWith('dm-')) {
-    const user = users.find(u => slug === `dm-${u.id.split('-')[1]}`);
-    if (user) {
-      return { id: slug, name: user.name, type: 'dm', userIds: ['user-you', user.id] };
-    }
-  }
   return rooms.find(room => room.id === slug);
 };
 
@@ -95,8 +86,8 @@ export const getMessagesByRoom = (roomId: string): Message[] => {
   return messages.filter(message => message.roomId === roomId).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 };
 
-export const getUserById = (userId: string): User | undefined => {
-  return users.find(user => user.id === userId);
+export const getUserById = (userId: string, allUsers: User[]): User | undefined => {
+  return allUsers.find(user => user.id === userId);
 };
 
 export const getCurrentUser = (): User => {

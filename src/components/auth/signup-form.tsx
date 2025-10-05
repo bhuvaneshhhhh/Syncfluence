@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Github, Loader2, Mail, Lock } from 'lucide-react';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { Loader2, Mail, Lock, User, Github } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,33 +14,57 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { GoogleIcon } from '@/components/icons/google-icon';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 
-export default function LoginForm() {
+export default function SignupForm() {
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setGoogleIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) {
+        toast({
+            variant: "destructive",
+            title: "Sign Up Failed",
+            description: "Password must be at least 6 characters long.",
+        });
+        return;
+    }
     setIsLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Update Firebase Auth profile
+      await updateProfile(user, { displayName });
+
+      // Create user profile in Firestore
+      await setDoc(doc(firestore, 'users', user.uid), {
+        uid: user.uid,
+        displayName: displayName,
+        email: user.email,
+        avatarUrl: user.photoURL || `https://api.dicebear.com/8.x/lorelei/svg?seed=${user.uid}`
+      });
+
       toast({
-        title: 'Login Successful',
-        description: 'Welcome back!',
+        title: 'Sign Up Successful',
+        description: 'Welcome to Syncfluence!',
       });
       router.push('/chat');
     } catch (error: any) {
       console.error(error);
       toast({
         variant: 'destructive',
-        title: 'Login Failed',
+        title: 'Sign Up Failed',
         description: error.message || 'An unexpected error occurred.',
       });
     } finally {
@@ -51,10 +76,21 @@ export default function LoginForm() {
     setGoogleIsLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
+
+      // Create user profile in Firestore if it's a new user
+      await setDoc(doc(firestore, 'users', user.uid), {
+        uid: user.uid,
+        displayName: user.displayName,
+        email: user.email,
+        avatarUrl: user.photoURL || `https://api.dicebear.com/8.x/lorelei/svg?seed=${user.uid}`
+      }, { merge: true });
+
+
       toast({
-        title: 'Login Successful',
-        description: 'Welcome back!',
+        title: 'Sign Up Successful',
+        description: 'Welcome to Syncfluence!',
       });
       router.push('/chat');
     } catch (error: any) {
@@ -72,11 +108,18 @@ export default function LoginForm() {
 
   return (
     <Card className="shadow-lg">
-      <form onSubmit={handleLogin}>
+      <form onSubmit={handleSignup}>
         <CardHeader className="space-y-1 text-center">
-            <CardTitle>Sign In</CardTitle>
+            <CardTitle>Create an Account</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="displayName">Display Name</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input id="displayName" type="text" placeholder="John Doe" required className="pl-10" value={displayName} onChange={e => setDisplayName(e.target.value)} />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
@@ -95,7 +138,7 @@ export default function LoginForm() {
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
+            Sign Up
           </Button>
 
           <div className="relative w-full">
@@ -111,10 +154,10 @@ export default function LoginForm() {
               Continue with Google
             </Button>
           </div>
-          <p className="text-center text-sm text-muted-foreground">
-            Don't have an account?{' '}
-            <Link href="/signup" className="font-semibold text-primary hover:underline">
-              Sign Up
+           <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link href="/login" className="font-semibold text-primary hover:underline">
+              Sign In
             </Link>
           </p>
         </CardFooter>

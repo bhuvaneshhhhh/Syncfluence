@@ -2,27 +2,31 @@
 
 import { useEffect, useRef } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { Message } from "@/lib/types";
-import { getUserById, getCurrentUser } from "@/lib/data";
+import type { Message, User } from "@/lib/types";
+import { getUserById } from "@/lib/data";
 import { UserAvatar } from "./user-avatar";
 import { cn } from "@/lib/utils";
-import { format, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday, fromUnixTime } from 'date-fns';
 import { FileText } from 'lucide-react';
+import { useUser } from '@/firebase';
 
 type MessageListProps = {
   messages: Message[];
+  allUsers: User[];
 };
 
-const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
+const formatDate = (timestamp: any) => {
+    if (!timestamp) return '';
+    // Convert Firestore Timestamp to Date
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     if (isToday(date)) return format(date, 'h:mm a');
     if (isYesterday(date)) return `Yesterday at ${format(date, 'h:mm a')}`;
     return format(date, 'MMM d, h:mm a');
 }
 
-export default function MessageList({ messages }: MessageListProps) {
+export default function MessageList({ messages, allUsers }: MessageListProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useUser();
 
   useEffect(() => {
     if (viewportRef.current) {
@@ -34,10 +38,10 @@ export default function MessageList({ messages }: MessageListProps) {
     <ScrollArea className="flex-1" viewportRef={viewportRef}>
       <div className="p-4 space-y-4">
         {messages.map((message, index) => {
-          const user = getUserById(message.userId);
+          const user = getUserById(message.userId, allUsers);
           const prevMessage = messages[index - 1];
           const isSameUser = prevMessage?.userId === message.userId;
-          const isCurrentUser = message.userId === currentUser.id;
+          const isCurrentUser = message.userId === currentUser?.uid;
 
           if (!user) return null;
 
@@ -68,7 +72,7 @@ export default function MessageList({ messages }: MessageListProps) {
               <UserAvatar user={user} />
               <div className="flex flex-col items-start">
                 <div className="flex items-baseline gap-2">
-                  <p className="font-semibold text-sm">{user.name}</p>
+                  <p className="font-semibold text-sm">{user.displayName}</p>
                   <p className="text-xs text-muted-foreground">{formatDate(message.timestamp)}</p>
                 </div>
                  <div className={cn(
