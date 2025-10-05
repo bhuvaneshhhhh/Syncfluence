@@ -39,8 +39,8 @@ import { UserAvatar } from './user-avatar';
 import { Button } from '../ui/button';
 import { signOut } from 'firebase/auth';
 import { useEffect, useState } from 'react';
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, DialogTitle, DialogDescription } from '../ui/command';
-import { Dialog, DialogContent, DialogHeader, DialogFooter } from '../ui/dialog';
+import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -317,8 +317,8 @@ export default function SidebarContentComponent() {
       </SidebarContent>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <DialogTitle>Search Users</DialogTitle>
-        <DialogDescription>Search for users to start a new direct message.</DialogDescription>
+        <DialogTitle className='sr-only'>Search Users</DialogTitle>
+        <DialogDescription className='sr-only'>Search for users to start a new direct message.</DialogDescription>
          <CommandInput placeholder="Search for users by name..." value={search} onValueChange={setSearch} />
         <CommandList>
           <CommandEmpty>{search.length > 1 ? 'No users found.' : 'Type to search for users.'}</CommandEmpty>
