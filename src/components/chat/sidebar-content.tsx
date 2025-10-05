@@ -23,6 +23,7 @@ import {
   SidebarSeparator,
   SidebarMenuBadge,
   SidebarGroupAction,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import {
   DropdownMenu,
@@ -49,6 +50,7 @@ function DirectMessageItem({ room }: { room: Room }) {
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
   const [otherUser, setOtherUser] = useState<User | null>(null);
+  const { isMobile, setOpenMobile } = useSidebar();
 
   const otherUserId = useMemoFirebase(() => {
     if (!currentUser || !room || room.type !== 'dm') return null;
@@ -83,7 +85,7 @@ function DirectMessageItem({ room }: { room: Room }) {
   }
 
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem onClick={() => { if (isMobile) setOpenMobile(false)}}>
       <Link href={`/chat/${room.id}`} className="w-full">
         <SidebarMenuButton isActive={slug === room.id} className="w-full justify-start">
           <UserAvatar user={otherUser} className="w-6 h-6" />
@@ -163,6 +165,7 @@ export default function SidebarContentComponent() {
   const router = useRouter();
   const params = useParams();
   const slug = params.slug?.join('/') || 'general';
+  const { isMobile, setOpenMobile } = useSidebar();
   
   const auth = useAuth();
   const firestore = useFirestore();
@@ -255,6 +258,8 @@ export default function SidebarContentComponent() {
                 description: 'Could not start a new conversation.'
             });
         }
+    } finally {
+        if(isMobile) setOpenMobile(false);
     }
   }
 
@@ -289,7 +294,7 @@ export default function SidebarContentComponent() {
                 <button onClick={() => setCreateChannelOpen(true)}><Plus /></button>
             </SidebarGroupAction>
             {channels?.map(room => (
-              <SidebarMenuItem key={room.id}>
+              <SidebarMenuItem key={room.id} onClick={() => { if(isMobile) setOpenMobile(false)}}>
                 <Link href={`/chat/${room.id}`} className="w-full">
                   <SidebarMenuButton isActive={slug === room.id} className="w-full">
                     # {room.name}

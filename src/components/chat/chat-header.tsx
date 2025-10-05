@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Users, ListTodo, Loader2, UserCog } from "lucide-react";
+import { Sparkles, Users, ListTodo, Loader2, UserCog, Menu } from "lucide-react";
 import type { Room, User } from "@/lib/types";
 import {
   AlertDialog,
@@ -21,6 +21,7 @@ import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { useUser } from '@/firebase';
 import ManageMembersSheet from './manage-members-sheet';
+import { useSidebar } from '../ui/sidebar';
 
 type ChatHeaderProps = {
   room: Room;
@@ -37,6 +38,7 @@ export default function ChatHeader({ room, roomUsers, allUsers, onShowTasks, tas
   const [summary, setSummary] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
   const { user: currentUser } = useUser();
+  const { isMobile, toggleSidebar } = useSidebar();
 
 
   const handleSummarize = async () => {
@@ -71,8 +73,13 @@ export default function ChatHeader({ room, roomUsers, allUsers, onShowTasks, tas
   return (
     <>
       <div className="flex items-center p-4 border-b">
+         {isMobile && (
+          <Button variant="ghost" size="icon" className="mr-2" onClick={toggleSidebar}>
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
         <div className="flex-1">
-          <h2 className="text-xl font-bold font-headline">
+          <h2 className="text-xl font-bold font-headline truncate max-w-[200px] sm:max-w-none">
             {room.type === 'channel' ? '# ' : ''}{headerName}
           </h2>
           <div className="flex items-center text-sm text-muted-foreground">
@@ -80,7 +87,7 @@ export default function ChatHeader({ room, roomUsers, allUsers, onShowTasks, tas
             <span>{roomUsers.length} members</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -117,7 +124,7 @@ export default function ChatHeader({ room, roomUsers, allUsers, onShowTasks, tas
                 )}
             </TooltipProvider>
 
-          <div className="flex -space-x-2 overflow-hidden">
+          <div className="hidden sm:flex -space-x-2 overflow-hidden ml-2">
             {roomUsers.map(member => (
               <Avatar key={member.id} className="inline-block h-8 w-8 rounded-full ring-2 ring-background">
                 <AvatarImage src={member.avatarUrl} alt={member.displayName} />
