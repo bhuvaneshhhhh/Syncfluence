@@ -1,4 +1,5 @@
 import LoginForm from '@/components/auth/login-form';
+import ClientOnly from '@/components/client-only';
 import { MessageSquareText } from 'lucide-react';
 
 export default function LoginPage() {
@@ -12,7 +13,9 @@ export default function LoginPage() {
           </div>
           <p className="text-muted-foreground">Welcome back! Please sign in to continue.</p>
         </div>
-        <LoginForm />
+        <ClientOnly>
+          <LoginForm />
+        </ClientOnly>
       </div>
     </div>
   );

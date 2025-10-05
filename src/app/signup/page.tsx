@@ -1,4 +1,5 @@
 import SignupForm from '@/components/auth/signup-form';
+import ClientOnly from '@/components/client-only';
 import { MessageSquareText } from 'lucide-react';
 
 export default function SignupPage() {
@@ -12,7 +13,9 @@ export default function SignupPage() {
           </div>
           <p className="text-muted-foreground">Create an account to start collaborating.</p>
         </div>
-        <SignupForm />
+        <ClientOnly>
+          <SignupForm />
+        </ClientOnly>
       </div>
     </div>
   );
