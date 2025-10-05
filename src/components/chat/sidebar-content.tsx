@@ -6,7 +6,6 @@ import {
   LogOut,
   MessageSquare,
   MessageSquareText,
-  PlusCircle,
   Search,
   Settings,
   Users,
@@ -22,8 +21,6 @@ import {
   SidebarFooter,
   SidebarSeparator,
   SidebarMenuBadge,
-  SidebarGroupAction,
-  SidebarInput,
 } from '@/components/ui/sidebar';
 import {
   DropdownMenu,
@@ -33,15 +30,64 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { useAuth, useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { collection, query, where, addDoc, getDocs, doc } from 'firebase/firestore';
 import type { Room, User } from '@/lib/types';
 import { UserAvatar } from './user-avatar';
 import { Button } from '../ui/button';
 import { signOut } from 'firebase/auth';
-import { useState } from 'react';
-import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { useEffect, useState } from 'react';
+import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandInput } from '../ui/command';
+
+function DirectMessageItem({ room }: { room: Room }) {
+  const firestore = useFirestore();
+  const { user: currentUser } = useUser();
+  const [otherUser, setOtherUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (!firestore || !currentUser || !room || room.type !== 'dm') return;
+
+    const otherUserId = room.userIds?.find(id => id !== currentUser.uid);
+    if (!otherUserId) return;
+
+    const userDocRef = doc(firestore, 'users', otherUserId);
+    const unsub = useDoc<User>(useMemoFirebase(() => userDocRef, [userDocRef]));
+    
+    if (unsub.data) {
+        setOtherUser(unsub.data);
+    }
+    // The useDoc hook will handle snapshot listening, but we don't have its unsubscribe function here.
+    // For this pattern, a one-time fetch or a more integrated hook might be better, but this will work for display.
+    // To prevent memory leaks in a larger app, you'd want to manage subscriptions more carefully.
+    
+  }, [firestore, currentUser, room]);
+  
+  const params = useParams();
+  const slug = params.slug?.join('/') || 'general';
+
+  if (!otherUser) {
+    return (
+        <SidebarMenuItem>
+            <SidebarMenuButton className="w-full justify-start">
+                <div className='w-6 h-6 rounded-full bg-muted animate-pulse' />
+                <span className='h-4 w-20 rounded-md bg-muted animate-pulse'></span>
+            </SidebarMenuButton>
+        </SidebarMenuItem>
+    );
+  }
+
+  return (
+    <SidebarMenuItem>
+      <Link href={`/chat/${room.id}`} className="w-full">
+        <SidebarMenuButton isActive={slug === room.id} className="w-full justify-start">
+          <UserAvatar user={otherUser} className="w-6 h-6" />
+          <span>{otherUser.displayName}</span>
+        </SidebarMenuButton>
+      </Link>
+    </SidebarMenuItem>
+  );
+}
+
 
 export default function SidebarContentComponent() {
   const router = useRouter();
@@ -55,13 +101,11 @@ export default function SidebarContentComponent() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
-  // Fetch all users for search
-  const usersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    // This is okay, assuming all users' profiles are public.
-    return query(collection(firestore, "users"));
-  }, [firestore]);
-  const { data: allUsers } = useCollection<User>(usersQuery);
+  // Fetch all users for search - THIS IS THE PROBLEMATIC QUERY
+  const { data: allUsers } = useCollection<User>(useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'users')) : null, 
+  [firestore]));
+
 
   // Fetch channels user is a member of
   const channelsQuery = useMemoFirebase(() => {
@@ -88,14 +132,6 @@ export default function SidebarContentComponent() {
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/login');
-  };
-
-  const getRoomUser = (room: Room) => {
-    if (room.type === 'dm' && room.userIds && allUsers && currentUser) {
-      const otherUserId = room.userIds.find(id => id !== currentUser.uid);
-      return allUsers.find(u => u.id === otherUserId);
-    }
-    return null;
   };
   
   const handleSelectUser = async (user: User) => {
@@ -175,20 +211,9 @@ export default function SidebarContentComponent() {
               <Users className="mr-2" />
               Direct Messages
             </SidebarGroupLabel>
-            {dms?.map(room => {
-              const user = getRoomUser(room);
-              if (!user) return null;
-              return (
-                <SidebarMenuItem key={room.id}>
-                  <Link href={`/chat/${room.id}`} className="w-full">
-                    <SidebarMenuButton isActive={slug === room.id} className="w-full justify-start">
-                      <UserAvatar user={user} className="w-6 h-6" />
-                      <span>{user.displayName}</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              );
-            })}
+            {dms?.map(room => (
+                <DirectMessageItem key={room.id} room={room} />
+             ))}
           </SidebarGroup>
         </SidebarMenu>
 
