@@ -37,12 +37,14 @@ export default function LoginForm() {
       });
       router.push('/chat');
     } catch (error: any) {
-      console.error(error);
       let description = 'An unexpected error occurred.';
       if (error.code === 'auth/invalid-credential') {
         description = 'Invalid email or password. Please try again.';
-      } else if (error.message) {
-        description = error.message;
+      } else {
+        console.error(error);
+        if (error.message) {
+            description = error.message;
+        }
       }
       toast({
         variant: 'destructive',
