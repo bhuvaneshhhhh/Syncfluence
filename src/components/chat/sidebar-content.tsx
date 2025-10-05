@@ -69,7 +69,7 @@ export default function SidebarContentComponent() {
             <MessageSquare className="mr-2" />
             Channels
           </SidebarGroupLabel>
-          <SidebarGroupAction>
+          <SidebarGroupAction asChild>
             <Button variant="ghost" size="icon" className="h-6 w-6">
               <PlusCircle />
             </Button>
@@ -93,7 +93,7 @@ export default function SidebarContentComponent() {
             <Users className="mr-2" />
             Direct Messages
           </SidebarGroupLabel>
-          <SidebarGroupAction>
+          <SidebarGroupAction asChild>
             <Button variant="ghost" size="icon" className="h-6 w-6">
               <PlusCircle />
             </Button>
