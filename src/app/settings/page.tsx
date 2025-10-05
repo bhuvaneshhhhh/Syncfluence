@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -70,8 +70,8 @@ export default function SettingsPage() {
     },
   });
 
-  // Fetch bio from Firestore
-  useState(() => {
+  // Fetch bio from Firestore once user and firestore are available
+  useEffect(() => {
     if (user && firestore) {
       const userDocRef = doc(firestore, 'users', user.uid);
       import('firebase/firestore').then(({ getDoc }) => {
@@ -82,7 +82,7 @@ export default function SettingsPage() {
         });
       });
     }
-  });
+  }, [user, firestore, form]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -93,7 +93,7 @@ export default function SettingsPage() {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!user) return;
+    if (!user || !firestore) return;
     setIsLoading(true);
 
     try {
@@ -138,7 +138,7 @@ export default function SettingsPage() {
         bio: values.bio,
         avatarUrl: newAvatarUrl,
         isAnonymous: user.isAnonymous && !(values.email && values.password), // Becomes non-anon if email/pass linked
-        ...(values.email && { email: values.email }), // only update email if provided
+        ...(user.isAnonymous && values.email && { email: values.email }), // only update email if it was just linked
       });
 
       toast({
